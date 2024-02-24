@@ -1,0 +1,13 @@
+#!/bin/bash
+
+export VIDEO_KEY="$VIDEO_KEY"
+export USER_ID="$USER_ID"
+export S3_REGION="$S3_REGION"
+export S3_BUCKET_NAME="$S3_BUCKET_NAME"
+export ACCESS_KEY_ID="$ACCESS_KEY_ID"
+export SECRET_ACCESS_KEY="$SECRET_ACCESS_KEY"
+export DATABASE_URI="$DATABASE_URI"
+export REDIS_HOST="$REDIS_HOST"
+export REDIS_PASSWORD="$REDIS_PASSWORD"
+
+exec node script.js

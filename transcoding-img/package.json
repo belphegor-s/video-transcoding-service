@@ -1,0 +1,16 @@
+{
+    "name": "video-transcoding-img",
+    "version": "1.0.0",
+    "main": "script.js",
+    "scripts": {
+        "test": "echo \"Error: no test specified\" && exit 1"
+    },
+    "license": "ISC",
+    "dependencies": {
+        "aws-sdk": "^2.1563.0",
+        "fluent-ffmpeg": "^2.1.2",
+        "pg": "^8.11.3",
+        "pg-hstore": "^2.3.4",
+        "redis": "^4.6.13"
+    }
+}

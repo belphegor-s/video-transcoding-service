@@ -1,0 +1,37 @@
+service: video-transcoder
+frameworkVersion: "3"
+useDotenv: true
+
+plugins:
+    - serverless-dotenv-plugin
+
+provider:
+    name: aws
+    runtime: nodejs16.x
+    region: eu-central-1
+    stage: prod
+    apiGateway:
+        apiKeys:
+            - primaryProdKey
+        usagePlan:
+            quota:
+                limit: 5000
+                period: DAY
+    iamRoleStatements:
+        - Effect: Allow
+          Action:
+              - "ecs:*"
+          Resource: "*"
+        - Effect: Allow
+          Action:
+              - "iam:PassRole"
+          Resource: ${env:ECS_ARN}
+
+functions:
+    api:
+        handler: index.handler
+        events:
+            - http:
+                  path: /video-transcode
+                  method: post
+                  private: true
