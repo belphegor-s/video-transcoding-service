@@ -35,5 +35,3 @@
 
 ![architecture](/static/architecture.png)
 
-
-[<img src="https://run.pstmn.io/button.svg" alt="Run In Postman" style="width: 128px; height: 32px;">](https://app.getpostman.com/run-collection/23374137-42f374b8-62cc-4681-b459-16b1a71ca592?action=collection%2Ffork&source=rip_markdown&collection-url=entityId%3D23374137-42f374b8-62cc-4681-b459-16b1a71ca592%26entityType%3Dcollection%26workspaceId%3D0b26b058-e6f1-48f1-a315-a45408b531f7)
