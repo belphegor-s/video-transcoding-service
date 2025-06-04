@@ -1,28 +1,35 @@
-import AWS from "../config/aws";
+import "dotenv/config";
+import { S3Client } from "@aws-sdk/client-s3";
+import { createPresignedPost, type PresignedPostOptions } from "@aws-sdk/s3-presigned-post";
 
-const s3 = new AWS.S3({
-	region: process.env.S3_REGION,
+const s3 = new S3Client({
+  region: process.env.S3_REGION!,
+  credentials: {
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
+  },
 });
 
-export const getPresignedUrl = (key: string, fileType: string, userId: string) => {
-	return new Promise((resolve, reject) => {
-		const params = {
-			Bucket: process.env.S3_BUCKET_NAME,
-			Fields: {
-				"Content-Type": fileType,
-				Key: key,
-				"x-amz-meta-userId": userId,
-			},
-			Expires: 3600,
-			Conditions: [["content-length-range", 0, 1024 * 1024 * 1024 * 5]], // max 5GB file
-		};
+export const getPresignedUrl = async (key: string, fileType: string, userId: string) => {
+  const params: PresignedPostOptions = {
+    Bucket: process.env.S3_BUCKET_NAME!,
+    Key: key,
+    Conditions: [
+      ["content-length-range", 0, 1024 * 1024 * 1024 * 5], // Max 5GB
+      { "Content-Type": fileType },
+      { "x-amz-meta-userId": userId },
+    ],
+    Fields: {
+      "Content-Type": fileType,
+      "x-amz-meta-userId": userId,
+    },
+    Expires: 60 * 60, // 1 hour
+  };
 
-		s3.createPresignedPost(params, (err, data) => {
-			if (err) {
-				reject(err);
-			} else {
-				resolve(data);
-			}
-		});
-	});
+  try {
+    const result = await createPresignedPost(s3, params);
+    return result;
+  } catch (err) {
+    throw err;
+  }
 };
