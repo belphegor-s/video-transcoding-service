@@ -6,7 +6,7 @@ plugins:
 
 provider:
   name: aws
-  runtime: nodejs16.x
+  runtime: nodejs20.x
   region: eu-central-1
   stage: prod
   apiGateway:
@@ -19,7 +19,8 @@ provider:
   iamRoleStatements:
     - Effect: Allow
       Action:
-        - "ecs:*"
+        - ecs:RunTask
+        - ecs:DescribeTasks
       Resource: "*"
     - Effect: Allow
       Action:

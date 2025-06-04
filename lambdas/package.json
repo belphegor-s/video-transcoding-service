@@ -1,6 +1,6 @@
 {
   "dependencies": {
-    "aws-sdk": "^2.1563.0",
+    "@aws-sdk/client-ecs": "^3.823.0",
     "pg": "^8.11.3",
     "pg-hstore": "^2.3.4",
     "redis": "^4.6.13",
