@@ -81,6 +81,7 @@ exports.handler = async (event, context) => {
               { name: "REDIS_USERNAME", value: process.env.REDIS_USERNAME },
               { name: "REDIS_PASSWORD", value: process.env.REDIS_PASSWORD },
               { name: "REDIS_HOST", value: process.env.REDIS_HOST },
+              { name: "DEEPGRAM_API_KEY", value: process.env.DEEPGRAM_API_KEY },
             ],
           },
         ],

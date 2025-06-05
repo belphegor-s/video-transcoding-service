@@ -7,6 +7,9 @@
   "dependencies": {
     "@aws-sdk/client-s3": "^3.823.0",
     "@aws-sdk/lib-storage": "^3.823.0",
+    "@deepgram/captions": "^1.2.0",
+    "@deepgram/sdk": "^4.2.0",
+    "ffmpeg-static": "^5.2.0",
     "fluent-ffmpeg": "^2.1.2",
     "fs-extra": "^11.3.0",
     "pg": "^8.11.3",

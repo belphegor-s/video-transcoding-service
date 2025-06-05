@@ -7,8 +7,12 @@ import fs from "fs-extra";
 import path from "path";
 import { pipeline } from "stream";
 import { promisify } from "util";
+import { createClient as createDeepgramClient } from "@deepgram/sdk";
+import { webvtt, srt } from "@deepgram/captions";
+import os from "os";
 
 const streamPipeline = promisify(pipeline);
+const numCPUs = os.cpus().length;
 
 const dbClient = new pkg.Client({
   connectionString: process.env.DATABASE_URI,
@@ -31,6 +35,8 @@ const s3 = new S3Client({
   },
 });
 
+const deepgram = createDeepgramClient(process.env.DEEPGRAM_API_KEY);
+
 const downloadObjectFromS3 = async (key) => {
   const command = new GetObjectCommand({
     Bucket: process.env.S3_BUCKET_NAME,
@@ -46,16 +52,183 @@ const downloadObjectFromS3 = async (key) => {
   return localFilePath;
 };
 
+const extractAudioForTranscription = async (localFilePath) => {
+  return new Promise((resolve, reject) => {
+    const audioPath = `/tmp/audio_${Date.now()}.wav`;
+
+    ffmpeg(localFilePath)
+      .output(audioPath)
+      .audioCodec("pcm_s16le")
+      .audioChannels(1)
+      .audioFrequency(16000)
+      .noVideo()
+      .on("end", () => resolve(audioPath))
+      .on("error", reject)
+      .run();
+  });
+};
+
+const detectLanguage = async (audioPath) => {
+  try {
+    const audioBuffer = await fs.readFile(audioPath);
+
+    const { result } = await deepgram.listen.prerecorded.transcribeFile(audioBuffer, {
+      model: "nova-2",
+      detect_language: true,
+      punctuate: true,
+      smart_format: true,
+      paragraphs: false,
+      utterances: false,
+      diarize: false,
+    });
+
+    const detectedLanguage = result.results?.channels?.[0]?.detected_language || "en";
+    console.info(`Detected language: ${detectedLanguage}`);
+
+    return detectedLanguage;
+  } catch (error) {
+    console.warn("Language detection failed, defaulting to English:", error.message);
+    return "en";
+  }
+};
+
+const generateCaptions = async (audioPath, language = "en") => {
+  try {
+    const audioBuffer = await fs.readFile(audioPath);
+
+    const { result } = await deepgram.listen.prerecorded.transcribeFile(audioBuffer, {
+      model: "nova-2",
+      language: language,
+      punctuate: true,
+      smart_format: true,
+      paragraphs: false,
+      utterances: true,
+      diarize: false,
+      timestamps: true,
+    });
+
+    return result;
+  } catch (error) {
+    console.error(`Error generating captions for language ${language}:`, error.message);
+    throw error;
+  }
+};
+
+const convertToWebVTT = (transcriptionResult) => {
+  try {
+    return webvtt(transcriptionResult);
+  } catch (error) {
+    console.error("Error converting to WebVTT:", error.message);
+    throw error;
+  }
+};
+
+const convertToSRT = (transcriptionResult) => {
+  try {
+    return srt(transcriptionResult);
+  } catch (error) {
+    console.error("Error converting to SRT:", error.message);
+    throw error;
+  }
+};
+
+const uploadCaptionsToS3 = async (captionContent, key, format) => {
+  const upload = new Upload({
+    client: s3,
+    params: {
+      Bucket: process.env.S3_BUCKET_NAME,
+      Key: key,
+      Body: captionContent,
+      ContentType: format === "vtt" ? "text/vtt" : "text/srt",
+    },
+  });
+
+  await upload.done();
+  return key;
+};
+
+const processCaptions = async (localFilePath, baseOutputKeyPrefix) => {
+  try {
+    console.info("Extracting audio for transcription...");
+    const audioPath = await extractAudioForTranscription(localFilePath);
+
+    console.info("Detecting language...");
+    const detectedLanguage = await detectLanguage(audioPath);
+
+    const captionUrls = {};
+    const languagesToProcess = ["en"]; // Always include English
+
+    // Add detected language if it's not English
+    if (detectedLanguage !== "en") {
+      languagesToProcess.push(detectedLanguage);
+    }
+
+    // Process captions for each language
+    for (const lang of languagesToProcess) {
+      console.info(`Generating captions for language: ${lang}`);
+
+      try {
+        const transcriptionResult = await generateCaptions(audioPath, lang);
+
+        // Convert to WebVTT and SRT
+        const vttContent = convertToWebVTT(transcriptionResult);
+        const srtContent = convertToSRT(transcriptionResult);
+
+        // Upload captions to S3
+        const vttKey = `${baseOutputKeyPrefix}/captions/${lang}.vtt`;
+        const srtKey = `${baseOutputKeyPrefix}/captions/${lang}.srt`;
+
+        await Promise.all([uploadCaptionsToS3(vttContent, vttKey, "vtt"), uploadCaptionsToS3(srtContent, srtKey, "srt")]);
+
+        captionUrls[lang] = {
+          vtt: vttKey,
+          srt: srtKey,
+        };
+
+        console.info(`Captions uploaded for language ${lang}`);
+      } catch (error) {
+        console.error(`Failed to process captions for language ${lang}:`, error.message);
+      }
+    }
+
+    // Clean up audio file
+    await fs.remove(audioPath);
+
+    return captionUrls;
+  } catch (error) {
+    console.error("Error processing captions:", error.message);
+    return {};
+  }
+};
+
 const transcodeToHLS = async (localFilePath, outputKeyPrefix, outputResolution) => {
   return new Promise((resolve, reject) => {
     console.info(`Transcoding to HLS ${localFilePath} for resolution: ${outputResolution}...`);
 
-    const outputDir = `/tmp/hls_${outputResolution}`;
+    const outputDir = `/tmp/hls_${outputResolution}_${Date.now()}`;
     fs.ensureDirSync(outputDir);
 
-    ffmpeg(localFilePath)
-      .outputOptions(["-preset veryfast", `-vf scale=${outputResolution}`, "-profile:v baseline", "-level 3.0", "-start_number 0", "-hls_time 10", "-hls_list_size 0", "-f hls"])
-      .output(path.join(outputDir, "index.m3u8"))
+    // Optimize ffmpeg settings for faster transcoding
+    const ffmpegCommand = ffmpeg(localFilePath)
+      .outputOptions([
+        "-preset ultrafast", // Fastest preset for ECS Fargate
+        `-vf scale=${outputResolution}`,
+        "-profile:v baseline",
+        "-level 3.0",
+        "-start_number 0",
+        "-hls_time 6", // Shorter segments for faster processing
+        "-hls_list_size 0",
+        "-f hls",
+        "-threads 0", // Use all available threads
+        "-tune zerolatency", // Optimize for speed
+        "-movflags +faststart",
+      ])
+      .output(path.join(outputDir, "index.m3u8"));
+
+    ffmpegCommand
+      .on("progress", (progress) => {
+        console.info(`${outputResolution}: ${Math.round(progress.percent || 0)}% complete`);
+      })
       .on("end", async () => {
         console.info(`HLS transcoding done for resolution: ${outputResolution}`);
 
@@ -87,7 +260,7 @@ const transcodeToHLS = async (localFilePath, outputKeyPrefix, outputResolution) 
   });
 };
 
-const generateMasterPlaylist = async (playlistKeys, outputKeyPrefix) => {
+const generateMasterPlaylist = async (playlistKeys, outputKeyPrefix, captionUrls) => {
   const masterContent = playlistKeys
     .map((key) => {
       const resolution = key.match(/(\d+)x(\d+)_hls/);
@@ -97,14 +270,21 @@ const generateMasterPlaylist = async (playlistKeys, outputKeyPrefix) => {
 
       const variantPath = `${path.basename(path.dirname(key))}/index.m3u8`;
 
-      return `#EXT-X-STREAM-INF:BANDWIDTH=${Math.floor(bandwidth)},RESOLUTION=${width}x${height}
-${variantPath}
-`;
+      return `#EXT-X-STREAM-INF:BANDWIDTH=${Math.floor(bandwidth)},RESOLUTION=${width}x${height}\n${variantPath}`;
     })
-    .join("");
+    .join("\n");
 
-  const finalContent = `#EXTM3U\n${masterContent}`;
-  const masterPath = `/tmp/master.m3u8`;
+  // Add subtitle tracks to master playlist
+  let subtitleTracks = "";
+  for (const [lang, urls] of Object.entries(captionUrls)) {
+    const langName = lang === "en" ? "English" : lang.toUpperCase();
+    subtitleTracks += `#EXT-X-MEDIA:TYPE=SUBTITLES,GROUP-ID="subs",NAME="${langName}",DEFAULT=${lang === "en" ? "YES" : "NO"},AUTOSELECT=${
+      lang === "en" ? "YES" : "NO"
+    },FORCED=NO,LANGUAGE="${lang}",URI="captions/${lang}.vtt"\n`;
+  }
+
+  const finalContent = `#EXTM3U\n#EXT-X-VERSION:3\n${subtitleTracks}${masterContent}`;
+  const masterPath = `/tmp/master_${Date.now()}.m3u8`;
 
   await fs.writeFile(masterPath, finalContent);
 
@@ -119,6 +299,7 @@ ${variantPath}
     },
   }).done();
 
+  await fs.remove(masterPath);
   return masterKey;
 };
 
@@ -157,25 +338,44 @@ const transcodeAndUploadObject = async (inputKey) => {
     await dbClient.connect();
     await redisClient.connect();
 
-    const hlsPlaylistUrls = [];
-    const baseOutputKeyPrefix = `${process.env.USER_ID}/${path.basename(inputKey)}`;
+    const baseOutputKeyPrefix = `${process.env.USER_ID}/${path.basename(inputKey, path.extname(inputKey))}`;
 
-    for (const res of applicableResolutions) {
-      const outputKeyPrefix = `${baseOutputKeyPrefix}/${res}_hls`;
-      const playlistKey = await transcodeToHLS(localFilePath, outputKeyPrefix, res);
-      hlsPlaylistUrls.push(playlistKey);
+    // Process captions in parallel with transcoding preparation
+    const captionPromise = processCaptions(localFilePath, baseOutputKeyPrefix);
+
+    // Parallel transcoding with worker threads (limit concurrent workers to avoid memory issues)
+    const maxConcurrentWorkers = Math.min(numCPUs, applicableResolutions.length, 4);
+    const hlsPlaylistUrls = [];
+
+    for (let i = 0; i < applicableResolutions.length; i += maxConcurrentWorkers) {
+      const batch = applicableResolutions.slice(i, i + maxConcurrentWorkers);
+      const batchPromises = batch.map(async (res) => {
+        const outputKeyPrefix = `${baseOutputKeyPrefix}/${res}_hls`;
+        return await transcodeToHLS(localFilePath, outputKeyPrefix, res);
+      });
+
+      const batchResults = await Promise.all(batchPromises);
+      hlsPlaylistUrls.push(...batchResults);
     }
 
-    const masterPlaylistKey = await generateMasterPlaylist(hlsPlaylistUrls, baseOutputKeyPrefix);
+    // Wait for captions to complete
+    const captionUrls = await captionPromise;
 
+    // Generate master playlist with captions
+    const masterPlaylistKey = await generateMasterPlaylist(hlsPlaylistUrls, baseOutputKeyPrefix, captionUrls);
+
+    // Update database with results
     await dbClient.query({
-      text: 'UPDATE "Videos" SET status = $1, transcoded_urls = $2, master_playlist_url = $3 WHERE s3_key = $4',
-      values: ["transcoded", hlsPlaylistUrls, masterPlaylistKey, inputKey],
+      text: 'UPDATE "Videos" SET status = $1, transcoded_urls = $2, master_playlist_url = $3, caption_urls = $4 WHERE s3_key = $5',
+      values: ["transcoded", hlsPlaylistUrls, masterPlaylistKey, JSON.stringify(captionUrls), inputKey],
     });
 
     await redisClient.hDel(process.env.USER_ID, inputKey);
 
-    console.info("Transcoding and upload complete.");
+    // Clean up local file
+    await fs.remove(localFilePath);
+
+    console.info("Transcoding, caption generation, and upload complete.");
   } catch (error) {
     try {
       await dbClient.connect();
@@ -185,7 +385,7 @@ const transcodeAndUploadObject = async (inputKey) => {
       });
     } catch (_) {}
 
-    console.error(`Error transcoding ${inputKey}:`, error.message);
+    console.error(`Error processing ${inputKey}:`, error.message);
     throw error;
   } finally {
     await dbClient.end();

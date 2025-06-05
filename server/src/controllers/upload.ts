@@ -12,7 +12,7 @@ const getQueueSize = async (userId: string) => {
   return objectKeys.length;
 };
 
-const allowedVideoTypes = ["video/mp4", "video/mpeg", "video/quicktime", "video/x-msvideo", "video/x-flv"];
+const allowedVideoTypes = ["video/mp4", "video/mpeg", "video/quicktime", "video/x-msvideo", "video/x-flv", "video/webm"];
 
 const uploadVideosSchema = z.object({
   fileType: z
