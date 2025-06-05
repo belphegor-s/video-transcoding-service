@@ -9,6 +9,7 @@ export interface VideoSchema {
   mime_type: string;
   status: "signed_url_generated" | "uploaded" | "transcoding" | "transcoded" | "error";
   transcoded_urls?: string[];
+  master_playlist_url?: string;
   created_at?: Date;
 }
 
@@ -19,6 +20,7 @@ class Video extends Model<VideoSchema> implements VideoSchema {
   public mime_type!: string;
   public status!: "signed_url_generated" | "uploaded" | "transcoding" | "transcoded" | "error";
   public transcoded_urls!: string[];
+  public master_playlist_url!: string;
   public created_at!: Date;
 }
 
@@ -53,6 +55,11 @@ Video.init(
       type: DataTypes.ARRAY(DataTypes.STRING(1000)),
       allowNull: false,
       defaultValue: [],
+    },
+    master_playlist_url: {
+      type: DataTypes.STRING(1000),
+      allowNull: true,
+      defaultValue: null,
     },
     created_at: {
       type: DataTypes.DATE,

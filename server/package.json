@@ -11,7 +11,11 @@
     "dependencies": {
         "@aws-sdk/client-s3": "^3.823.0",
         "@aws-sdk/s3-presigned-post": "^3.823.0",
+        "@aws-sdk/s3-request-presigner": "^3.824.0",
+        "aws-cloudfront-sign": "^3.0.2",
+        "axios": "^1.9.0",
         "bcryptjs": "^2.4.3",
+        "cors": "^2.8.5",
         "dotenv": "^16.4.4",
         "express": "^4.18.2",
         "jsonwebtoken": "^9.0.2",
@@ -25,6 +29,7 @@
     },
     "devDependencies": {
         "@types/bcryptjs": "^2.4.6",
+        "@types/cors": "^2.8.18",
         "@types/express": "^4.17.21",
         "@types/jsonwebtoken": "^9.0.5",
         "@types/node": "^20.11.19",

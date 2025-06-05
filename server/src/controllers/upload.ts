@@ -4,7 +4,7 @@ import { z } from "zod";
 import { v4 as uuid } from "uuid";
 import { getPresignedUrl } from "../utils/getPresignedUrl";
 import Video from "../models/Video";
-import { getRedisClient } from "../utils/redisClient";
+import { getRedisClient } from "../lib/redisClient";
 
 const getQueueSize = async (userId: string) => {
   const client = await getRedisClient();
