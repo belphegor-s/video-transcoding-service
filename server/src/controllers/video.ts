@@ -2,7 +2,6 @@ import { Request, Response } from "express";
 import Video from "../models/Video";
 import { z } from "zod";
 import { getSignedCloudFrontUrl } from "../utils/getSignedCloudFrontUrl";
-import { getSignedCloudFrontCookies } from "../utils/getSignedCloudfrontCookies";
 import url from "url";
 import path from "path";
 
@@ -71,8 +70,10 @@ export const streamVideoController = async (req: Request, res: Response) => {
 
     const ext = path.extname(requestedPath).toLowerCase();
 
+    const protocol = req.headers["x-forwarded-proto"] || req.protocol;
+    const host = req.headers.host;
+
     if (ext === ".m3u8") {
-      // Fetch the original playlist from CloudFront (master or variant)
       const signedUrl = getSignedCloudFrontUrl(requestedPath);
 
       const response = await fetch(signedUrl);
@@ -82,7 +83,6 @@ export const streamVideoController = async (req: Request, res: Response) => {
 
       const playlistText = await response.text();
 
-      // Base URL for resolving relative URLs inside the playlist
       const playlistBasePath = requestedPath.substring(0, requestedPath.lastIndexOf("/") + 1);
 
       const lines = playlistText.split("\n");
@@ -94,7 +94,7 @@ export const streamVideoController = async (req: Request, res: Response) => {
 
         let absolutePath = url.resolve(playlistBasePath, line);
 
-        return `http://localhost:9191/api/v1/video/stream?video_id=${video_id}&path=${encodeURIComponent(absolutePath)}`;
+        return `${protocol}://${host}/api/v1/video/stream?video_id=${video_id}&path=${encodeURIComponent(absolutePath)}`;
       });
 
       res.setHeader("Content-Type", "application/vnd.apple.mpegurl");

@@ -31,6 +31,8 @@
     REDIS_USERNAME=""
     REDIS_PASSWORD=""
     REDIS_HOST=""
+    CLOUDFRONT_URL=""
+    CLOUDFRONT_PUBLIC_KEY_ID=""
     ```
 
 ---

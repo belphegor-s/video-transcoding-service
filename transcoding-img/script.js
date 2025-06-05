@@ -54,24 +54,13 @@ const transcodeToHLS = async (localFilePath, outputKeyPrefix, outputResolution) 
     fs.ensureDirSync(outputDir);
 
     ffmpeg(localFilePath)
-      .outputOptions([
-        "-preset veryfast",
-        `-vf scale=${outputResolution}`,
-        "-profile:v baseline", // compatibility
-        "-level 3.0",
-        "-start_number 0",
-        "-hls_time 10",
-        "-hls_list_size 0",
-        "-f hls",
-      ])
+      .outputOptions(["-preset veryfast", `-vf scale=${outputResolution}`, "-profile:v baseline", "-level 3.0", "-start_number 0", "-hls_time 10", "-hls_list_size 0", "-f hls"])
       .output(path.join(outputDir, "index.m3u8"))
       .on("end", async () => {
         console.info(`HLS transcoding done for resolution: ${outputResolution}`);
 
         try {
-          // Upload all files inside outputDir to S3 under outputKeyPrefix
           const files = await fs.readdir(outputDir);
-
           const uploadPromises = files.map((file) => {
             const filePath = path.join(outputDir, file);
             const s3Key = `${outputKeyPrefix}/${file}`;
@@ -86,11 +75,9 @@ const transcodeToHLS = async (localFilePath, outputKeyPrefix, outputResolution) 
           });
 
           await Promise.all(uploadPromises);
-
-          // Cleanup temp folder
           await fs.remove(outputDir);
 
-          resolve(`${outputKeyPrefix}/index.m3u8`); // return playlist key
+          resolve(`${outputKeyPrefix}/index.m3u8`);
         } catch (err) {
           reject(err);
         }
@@ -98,6 +85,41 @@ const transcodeToHLS = async (localFilePath, outputKeyPrefix, outputResolution) 
       .on("error", reject)
       .run();
   });
+};
+
+const generateMasterPlaylist = async (playlistKeys, outputKeyPrefix) => {
+  const masterContent = playlistKeys
+    .map((key) => {
+      const resolution = key.match(/(\d+)x(\d+)_hls/);
+      if (!resolution) return "";
+      const [_, width, height] = resolution;
+      const bandwidth = width * height * 0.07;
+
+      const variantPath = `${path.basename(path.dirname(key))}/index.m3u8`;
+
+      return `#EXT-X-STREAM-INF:BANDWIDTH=${Math.floor(bandwidth)},RESOLUTION=${width}x${height}
+${variantPath}
+`;
+    })
+    .join("");
+
+  const finalContent = `#EXTM3U\n${masterContent}`;
+  const masterPath = `/tmp/master.m3u8`;
+
+  await fs.writeFile(masterPath, finalContent);
+
+  const masterKey = `${outputKeyPrefix}/master.m3u8`;
+
+  await new Upload({
+    client: s3,
+    params: {
+      Bucket: process.env.S3_BUCKET_NAME,
+      Key: masterKey,
+      Body: fs.createReadStream(masterPath),
+    },
+  }).done();
+
+  return masterKey;
 };
 
 const getVideoResolution = (localFilePath, inputKey) => {
@@ -125,7 +147,6 @@ const transcodeAndUploadObject = async (inputKey) => {
 
     console.info("Original resolution:", originalResolution);
 
-    // Filter only resolutions smaller or equal to original
     const applicableResolutions = resolutions.filter((res) => {
       const [w, h] = res.split("x").map(Number);
       return w <= originalResolution.width && h <= originalResolution.height;
@@ -137,19 +158,21 @@ const transcodeAndUploadObject = async (inputKey) => {
     await redisClient.connect();
 
     const hlsPlaylistUrls = [];
+    const baseOutputKeyPrefix = `${process.env.USER_ID}/${path.basename(inputKey)}`;
+
     for (const res of applicableResolutions) {
-      const outputKeyPrefix = `${process.env.USER_ID}/${path.basename(inputKey)}/${res}_hls`;
+      const outputKeyPrefix = `${baseOutputKeyPrefix}/${res}_hls`;
       const playlistKey = await transcodeToHLS(localFilePath, outputKeyPrefix, res);
       hlsPlaylistUrls.push(playlistKey);
     }
 
-    // Save playlist URLs to DB
+    const masterPlaylistKey = await generateMasterPlaylist(hlsPlaylistUrls, baseOutputKeyPrefix);
+
     await dbClient.query({
-      text: 'UPDATE "Videos" SET status = $1, transcoded_urls = $2 WHERE s3_key = $3',
-      values: ["transcoded", hlsPlaylistUrls, inputKey],
+      text: 'UPDATE "Videos" SET status = $1, transcoded_urls = $2, master_playlist_url = $3 WHERE s3_key = $4',
+      values: ["transcoded", hlsPlaylistUrls, masterPlaylistKey, inputKey],
     });
 
-    // Clean Redis flag
     await redisClient.hDel(process.env.USER_ID, inputKey);
 
     console.info("Transcoding and upload complete.");
@@ -160,9 +183,8 @@ const transcodeAndUploadObject = async (inputKey) => {
         text: 'UPDATE "Videos" SET status = $1 WHERE s3_key = $2',
         values: ["error", inputKey],
       });
-    } catch (_) {
-      // swallow db error on failure path
-    }
+    } catch (_) {}
+
     console.error(`Error transcoding ${inputKey}:`, error.message);
     throw error;
   } finally {
