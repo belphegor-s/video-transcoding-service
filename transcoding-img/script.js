@@ -14,18 +14,45 @@ import os from "os";
 const streamPipeline = promisify(pipeline);
 const numCPUs = os.cpus().length;
 
-const dbClient = new pkg.Client({
-  connectionString: process.env.DATABASE_URI,
-});
+// Create clients with proper error handling
+let dbClient = null;
+let redisClient = null;
 
-const redisClient = createClient({
-  username: process.env.REDIS_USERNAME,
-  password: process.env.REDIS_PASSWORD,
-  socket: {
-    host: process.env.REDIS_HOST,
-    port: 17534,
-  },
-});
+const createDbClient = () => {
+  const client = new pkg.Client({
+    connectionString: process.env.DATABASE_URI,
+    // Add connection timeout and retry settings
+    connectionTimeoutMillis: 10000,
+    idleTimeoutMillis: 30000,
+    query_timeout: 30000,
+  });
+
+  // Add error handler to prevent unhandled errors
+  client.on("error", (err) => {
+    console.error("Database client error:", err.message);
+  });
+
+  return client;
+};
+
+const createRedisClient = () => {
+  const client = createClient({
+    username: process.env.REDIS_USERNAME,
+    password: process.env.REDIS_PASSWORD,
+    socket: {
+      host: process.env.REDIS_HOST,
+      port: 17534,
+      reconnectStrategy: (retries) => Math.min(retries * 50, 500),
+    },
+  });
+
+  // Add error handler
+  client.on("error", (err) => {
+    console.error("Redis client error:", err.message);
+  });
+
+  return client;
+};
 
 const s3 = new S3Client({
   region: process.env.S3_REGION,
@@ -320,6 +347,81 @@ const getVideoResolution = (localFilePath, inputKey) => {
   });
 };
 
+// Helper function to safely execute database operations
+const safeDbOperation = async (operation, inputKey) => {
+  let retries = 3;
+  while (retries > 0) {
+    try {
+      if (!dbClient || dbClient._ending) {
+        dbClient = createDbClient();
+        await dbClient.connect();
+      }
+      return await operation(dbClient);
+    } catch (error) {
+      console.error("Database operation failed:", error.message);
+      retries--;
+
+      if (retries === 0) {
+        throw error;
+      }
+
+      // Clean up failed connection
+      try {
+        if (dbClient) {
+          await dbClient.end();
+        }
+      } catch {}
+      dbClient = null;
+
+      // Wait before retry
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+    }
+  }
+};
+
+// Helper function to safely execute Redis operations
+const safeRedisOperation = async (operation) => {
+  let retries = 3;
+  while (retries > 0) {
+    try {
+      // Check if we need to create or connect the client
+      if (!redisClient) {
+        redisClient = createRedisClient();
+      }
+
+      // Only connect if not already connected
+      if (!redisClient.isOpen && !redisClient.isReady) {
+        await redisClient.connect();
+      }
+
+      return await operation(redisClient);
+    } catch (error) {
+      console.error("Redis operation failed:", error.message);
+      retries--;
+
+      if (retries === 0) {
+        throw error;
+      }
+
+      // Clean up failed connection
+      try {
+        if (redisClient) {
+          if (redisClient.isOpen) {
+            await redisClient.disconnect();
+          }
+          redisClient = null;
+        }
+      } catch (cleanupError) {
+        console.error("Redis cleanup error:", cleanupError.message);
+        redisClient = null;
+      }
+
+      // Wait before retry
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+    }
+  }
+};
+
 const transcodeAndUploadObject = async (inputKey) => {
   try {
     const localFilePath = await downloadObjectFromS3(inputKey);
@@ -335,8 +437,19 @@ const transcodeAndUploadObject = async (inputKey) => {
 
     console.info("Applicable resolutions:", applicableResolutions);
 
-    await dbClient.connect();
-    await redisClient.connect();
+    // Initialize connections with retry logic
+    dbClient = createDbClient();
+    redisClient = createRedisClient();
+
+    await safeDbOperation(async (client) => {
+      // Connection is handled inside safeDbOperation
+      return Promise.resolve();
+    }, inputKey);
+
+    await safeRedisOperation(async (client) => {
+      // Connection is handled inside safeRedisOperation
+      return Promise.resolve();
+    });
 
     const baseOutputKeyPrefix = `${process.env.USER_ID}/${path.basename(inputKey, path.extname(inputKey))}`;
 
@@ -364,40 +477,75 @@ const transcodeAndUploadObject = async (inputKey) => {
     // Generate master playlist with captions
     const masterPlaylistKey = await generateMasterPlaylist(hlsPlaylistUrls, baseOutputKeyPrefix, captionUrls);
 
-    // Update database with results
-    await dbClient.query({
-      text: 'UPDATE "Videos" SET status = $1, transcoded_urls = $2, master_playlist_url = $3, caption_urls = $4 WHERE s3_key = $5',
-      values: ["transcoded", hlsPlaylistUrls, masterPlaylistKey, JSON.stringify(captionUrls), inputKey],
-    });
+    // Update database with results using safe operation
+    await safeDbOperation(async (client) => {
+      return await client.query({
+        text: 'UPDATE "Videos" SET status = $1, transcoded_urls = $2, master_playlist_url = $3, caption_urls = $4 WHERE s3_key = $5',
+        values: ["transcoded", hlsPlaylistUrls, masterPlaylistKey, JSON.stringify(captionUrls), inputKey],
+      });
+    }, inputKey);
 
-    await redisClient.hDel(process.env.USER_ID, inputKey);
+    // Clean up Redis entry using safe operation
+    await safeRedisOperation(async (client) => {
+      return await client.hDel(process.env.USER_ID, inputKey);
+    });
 
     // Clean up local file
     await fs.remove(localFilePath);
 
     console.info("Transcoding, caption generation, and upload complete.");
   } catch (error) {
-    try {
-      await dbClient.connect();
-      await dbClient.query({
-        text: 'UPDATE "Videos" SET status = $1 WHERE s3_key = $2',
-        values: ["error", inputKey],
-      });
-    } catch (_) {}
-
     console.error(`Error processing ${inputKey}:`, error.message);
+
+    // Try to update status to error
+    try {
+      await safeDbOperation(async (client) => {
+        return await client.query({
+          text: 'UPDATE "Videos" SET status = $1 WHERE s3_key = $2',
+          values: ["error", inputKey],
+        });
+      }, inputKey);
+    } catch (dbError) {
+      console.error("Failed to update error status in database:", dbError.message);
+    }
+
     throw error;
   } finally {
-    await dbClient.end();
-    await redisClient.disconnect();
-    process.exit(0);
+    // Clean up connections
+    try {
+      if (dbClient && !dbClient._ending) {
+        await dbClient.end();
+      }
+    } catch (error) {
+      console.error("Error closing database connection:", error.message);
+    }
+
+    try {
+      if (redisClient && (redisClient.isOpen || redisClient.isReady)) {
+        await redisClient.disconnect();
+      }
+    } catch (error) {
+      console.error("Error closing Redis connection:", error.message);
+    }
   }
 };
+
+// Add global error handlers
+process.on("uncaughtException", (error) => {
+  console.error("Uncaught Exception:", error);
+  process.exit(1);
+});
+
+process.on("unhandledRejection", (reason, promise) => {
+  console.error("Unhandled Rejection at:", promise, "reason:", reason);
+  process.exit(1);
+});
 
 (async () => {
   try {
     const videoKey = process.env.VIDEO_KEY;
     await transcodeAndUploadObject(videoKey);
+    process.exit(0);
   } catch (err) {
     console.error("An error occurred:", err.message);
     process.exit(1);
