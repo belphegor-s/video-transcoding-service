@@ -7,7 +7,7 @@ export interface VideoSchema {
   user_id: string;
   s3_key: string;
   mime_type: string;
-  status: "signed_url_generated" | "uploaded" | "transcoded" | "error";
+  status: "signed_url_generated" | "uploaded" | "transcoding" | "transcoded" | "error";
   transcoded_urls?: string[];
   created_at?: Date;
 }
@@ -17,7 +17,7 @@ class Video extends Model<VideoSchema> implements VideoSchema {
   public user_id!: string;
   public s3_key!: string;
   public mime_type!: string;
-  public status!: "signed_url_generated" | "uploaded" | "transcoded" | "error";
+  public status!: "signed_url_generated" | "uploaded" | "transcoding" | "transcoded" | "error";
   public transcoded_urls!: string[];
   public created_at!: Date;
 }
@@ -46,7 +46,7 @@ Video.init(
       allowNull: false,
     },
     status: {
-      type: DataTypes.ENUM("signed_url_generated", "uploaded", "transcoded", "error"),
+      type: DataTypes.ENUM("signed_url_generated", "uploaded", "transcoding", "transcoded", "error"),
       allowNull: false,
     },
     transcoded_urls: {

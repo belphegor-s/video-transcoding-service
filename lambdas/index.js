@@ -90,6 +90,11 @@ exports.handler = async (event, context) => {
     const taskRunResult = await ecsClient.send(runTaskCommand);
     console.log("ECS Task Started:", taskRunResult);
 
+    await dbClient.query({
+      text: 'UPDATE "Videos" SET status = $1 WHERE s3_key = $2',
+      values: ["transcoding", objectKey],
+    });
+
     return {
       statusCode: 200,
       body: "Video added to processing queue",

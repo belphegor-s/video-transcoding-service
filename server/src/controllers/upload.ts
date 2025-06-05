@@ -4,18 +4,10 @@ import { z } from "zod";
 import { v4 as uuid } from "uuid";
 import { getPresignedUrl } from "../utils/getPresignedUrl";
 import Video from "../models/Video";
-import { createClient } from "redis";
-
-const client = createClient({
-  username: process.env.REDIS_USERNAME,
-  password: process.env.REDIS_PASSWORD,
-  socket: {
-    host: process.env.REDIS_HOST,
-    port: 17534,
-  },
-});
+import { getRedisClient } from "../utils/redisClient";
 
 const getQueueSize = async (userId: string) => {
+  const client = await getRedisClient();
   const objectKeys = await client.hKeys(userId);
   return objectKeys.length;
 };
