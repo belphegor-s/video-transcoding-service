@@ -15,6 +15,12 @@ app.use(
   })
 );
 
+app.use(
+  express.json({
+    limit: "10mb",
+  })
+);
+
 app.use("/api/v1", rootRoutes);
 
 sequelize
