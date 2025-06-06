@@ -64,49 +64,55 @@ export const streamVideoController = async (req: Request, res: Response) => {
       return res.status(403).json({ error: "Access denied" });
     }
 
-    const masterPlaylistUrl = video.master_playlist_url!;
-
-    const requestedPath = resourcePath ? (resourcePath as string) : masterPlaylistUrl;
-
+    const requestedPath = resourcePath ? (resourcePath as string) : video.master_playlist_url!;
     const ext = path.extname(requestedPath).toLowerCase();
-
     const protocol = req.headers["x-forwarded-proto"] || req.protocol;
     const host = req.headers.host;
 
     if (ext === ".m3u8") {
       const signedUrl = getSignedCloudFrontUrl(requestedPath);
-
       const response = await fetch(signedUrl);
+
       if (!response.ok) {
         return res.status(500).json({ error: "Failed to fetch playlist" });
       }
 
       const playlistText = await response.text();
-
       const playlistBasePath = requestedPath.substring(0, requestedPath.lastIndexOf("/") + 1);
-
       const lines = playlistText.split("\n");
+
       const rewrittenLines = lines.map((line) => {
         line = line.trim();
-        if (line === "" || line.startsWith("#")) {
-          return line;
+
+        if (line.startsWith("#EXT-X-MEDIA") && line.includes('URI="')) {
+          return line.replace(/URI="([^"]+)"/, (_match, uriPath) => {
+            const absPath = url.resolve(playlistBasePath, uriPath);
+            const signedCaptionUrl = getSignedCloudFrontUrl(absPath);
+            return `URI="${signedCaptionUrl}"`;
+          });
         }
 
-        let absolutePath = url.resolve(playlistBasePath, line);
+        if (line && !line.startsWith("#")) {
+          const absPath = url.resolve(playlistBasePath, line);
+          const proxyUrl = `${protocol}://${host}/api/v1/video/stream?video_id=${video_id}&path=${encodeURIComponent(absPath)}`;
+          return proxyUrl;
+        }
 
-        return `${protocol}://${host}/api/v1/video/stream?video_id=${video_id}&path=${encodeURIComponent(absolutePath)}`;
+        return line;
       });
 
       res.setHeader("Content-Type", "application/vnd.apple.mpegurl");
       return res.send(rewrittenLines.join("\n"));
-    } else if ([".ts", ".aac", ".mp4"].includes(ext)) {
+    }
+
+    if (ext === ".ts") {
       const signedUrl = getSignedCloudFrontUrl(requestedPath);
       return res.redirect(signedUrl);
-    } else {
-      return res.status(400).json({ error: "Unsupported resource type" });
     }
+
+    return res.status(400).json({ error: "Unsupported resource type" });
   } catch (err) {
-    console.error("Stream auth error:", err);
+    console.error("Stream error:", err);
     return res.status(500).json({ error: "Internal server error" });
   }
 };

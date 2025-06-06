@@ -5,19 +5,15 @@ import express from "express";
 import rootRoutes from "./routes/root";
 import sequelize from "./db/sequelize";
 import cors from "cors";
+
 const app = express();
 
-app.use(express.json({ limit: "10mb" }));
 app.use(
   cors({
     origin: "http://localhost:5173",
     credentials: true,
   })
 );
-
-app.get("/", (req, res) => {
-  res.send("Server is live 🍵");
-});
 
 app.use("/api/v1", rootRoutes);
 
