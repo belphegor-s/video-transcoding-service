@@ -7,6 +7,9 @@ import jwt, { Secret } from "jsonwebtoken";
 import { passwordResetEmail, verifyEmailTemplate } from "../email_templates/email";
 import { sendEmail } from "../lib/sendEmail";
 
+const ACCESS_TOKEN_EXPIRES_IN = 60 * 60; // 1 hour
+const REFRESH_TOKEN_EXPIRES_IN = 7 * 24 * 60 * 60; // 7 days
+
 const userSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters long").max(255, "Name can't exceed 255 characters"),
   email: z.string().email("Please provide a valid email address"),
@@ -105,30 +108,34 @@ export const loginUserController = async (req: Request, res: Response) => {
     const { email, password } = loginCredentialsSchema.parse(req.body);
 
     const existingUser = await User.findOne({ where: { email } });
+
     if (!existingUser) {
       return res.status(400).json({ error: { message: "User with this email doesn't exist" } });
     }
 
-    if(!existingUser.is_verified) {
+    if (!existingUser.is_verified) {
       return res.status(400).json({ error: { message: "Email not verified" } });
     }
 
     const isPasswordValid = await compare(password, existingUser.password);
 
-    if (isPasswordValid) {
-      const accessToken = jwt.sign({ userId: existingUser.user_id, email }, process.env.JWT_ACCESS_TOKEN_SECRET as Secret, { expiresIn: "1h" });
-      const refreshToken = jwt.sign({ userId: existingUser.user_id, email }, process.env.JWT_REFRESH_TOKEN_SECRET as Secret, { expiresIn: "7d" });
-
-      res.json({
-        data: {
-          userId: existingUser.user_id,
-          accessToken,
-          refreshToken,
-        },
-      });
-    } else {
-      res.status(400).json({ error: { message: "Password is invalid" } });
+    if (!isPasswordValid) {
+      return res.status(400).json({ error: { message: "Password is invalid" } });
     }
+
+    const accessToken = jwt.sign({ userId: existingUser.user_id, email }, process.env.JWT_ACCESS_TOKEN_SECRET as Secret, { expiresIn: `${ACCESS_TOKEN_EXPIRES_IN}s` });
+    const refreshToken = jwt.sign({ userId: existingUser.user_id, email }, process.env.JWT_REFRESH_TOKEN_SECRET as Secret, { expiresIn: `${REFRESH_TOKEN_EXPIRES_IN}s` });
+
+    return res.json({
+      data: {
+        user: {
+          userId: existingUser.user_id,
+          email: existingUser.email,
+        },
+        accessToken,
+        refreshToken,
+      },
+    });
   } catch (e: any) {
     if (e instanceof z.ZodError) {
       const errorMessage = e.errors.map((err) => `${err.path.join(".")}: ${err.message}`).join("; ");
@@ -154,11 +161,20 @@ export const tokenRefreshController = async (req: Request, res: Response) => {
       return res.status(400).json({ error: { message: "Token invalid" } });
     }
 
-    const accessToken = jwt.sign({ userId: decodedToken.userId, email: decodedToken.email }, process.env.JWT_ACCESS_TOKEN_SECRET as Secret, { expiresIn: "1h" });
+    const accessToken = jwt.sign({ userId: decodedToken.userId, email: decodedToken.email }, process.env.JWT_ACCESS_TOKEN_SECRET as Secret, { expiresIn: `${ACCESS_TOKEN_EXPIRES_IN}s` });
 
-    const refreshToken = jwt.sign({ userId: decodedToken.userId, email: decodedToken.email }, process.env.JWT_REFRESH_TOKEN_SECRET as Secret, { expiresIn: "7d" });
+    const refreshToken = jwt.sign({ userId: decodedToken.userId, email: decodedToken.email }, process.env.JWT_REFRESH_TOKEN_SECRET as Secret, { expiresIn: `${REFRESH_TOKEN_EXPIRES_IN}s` });
 
-    res.json({ data: { accessToken, refreshToken } });
+    return res.json({
+      data: {
+        user: {
+          userId: decodedToken.userId,
+          email: decodedToken.email,
+        },
+        accessToken,
+        refreshToken,
+      },
+    });
   } catch (e: any) {
     if (e instanceof z.ZodError) {
       const errorMessage = e.errors.map((err) => `${err.path.join(".")}: ${err.message}`).join("; ");
@@ -246,7 +262,7 @@ export const resetPassword = async (req: Request, res: Response) => {
       const errorMessage = e.errors.map((err) => `${err.path.join(".")}: ${err.message}`).join("; ");
       return res.status(400).json({ error: { message: errorMessage } });
     }
-    
+
     console.error("Error in resetPassword ->", e);
     res.status(500).json({ error: { message: e?.message || "Internal error" } });
   }
