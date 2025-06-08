@@ -35,6 +35,8 @@ export default async function isAuth(req: Request, res: Response, next: NextFunc
 
     // Attach user info to request
     // @ts-ignore
+    req.name = user.name;
+    // @ts-ignore
     req.userId = user.user_id;
     // @ts-ignore
     req.email = user.email;

@@ -172,7 +172,7 @@ export const tokenRefreshController = async (req: Request, res: Response) => {
 
 export const meController = async (req: Request, res: Response) => {
   // @ts-ignore
-  res.json({ data: { userId: req?.userId, email: req?.email } });
+  res.json({ data: { userId: req?.userId, email: req?.email, name: req?.name } });
 };
 
 const resetRequestSchema = z.object({
