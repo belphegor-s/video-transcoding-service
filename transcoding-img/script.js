@@ -425,7 +425,7 @@ const safeRedisOperation = async (operation) => {
 const transcodeAndUploadObject = async (inputKey) => {
   try {
     const localFilePath = await downloadObjectFromS3(inputKey);
-    const resolutions = ["3840x2160", "2560x1440", "1920x1080", "1280x720", "854x480", "640x360"];
+    const resolutions = ["3840x2160", "2560x1440", "1920x1080", "1280x720", "854x480", "640x360", "426x240", "256x144"];
     const originalResolution = await getVideoResolution(localFilePath, inputKey);
 
     console.info("Original resolution:", originalResolution);
