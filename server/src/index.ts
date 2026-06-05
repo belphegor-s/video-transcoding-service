@@ -15,10 +15,9 @@ app.use(
   cors({
     origin(origin, callback) {
       // Allow non-browser clients (no Origin header) and any whitelisted origin.
-      if (!origin || allowedOrigins.includes(origin)) {
-        return callback(null, true);
-      }
-      return callback(new Error(`Origin ${origin} not allowed by CORS`));
+      // Disallowed origins are rejected by omitting CORS headers (no thrown error,
+      // so they get a clean response the browser still blocks).
+      callback(null, !origin || allowedOrigins.includes(origin));
     },
     credentials: true,
   }),
