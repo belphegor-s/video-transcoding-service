@@ -1,0 +1,128 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* hex forms for direct use in plain CSS / inline styles */
+  --bg: #0b0b0c;
+  --surface: #131316;
+  --surface-2: #18181c;
+  --border: #26262b;
+  --ink: #ededec;
+  --muted: #9a9a9f;
+  --faint: #6a6a70;
+  --accent: #cdfb46;
+  --accent-ink: #0b0b0c;
+  --danger: #ff6b5e;
+  --ok: #8fe388;
+
+  /* channel forms so Tailwind opacity modifiers (bg-accent/60) work */
+  --bg-rgb: 11 11 12;
+  --surface-rgb: 19 19 22;
+  --surface-2-rgb: 24 24 28;
+  --border-rgb: 38 38 43;
+  --ink-rgb: 237 237 236;
+  --muted-rgb: 154 154 159;
+  --faint-rgb: 106 106 112;
+  --accent-rgb: 205 251 70;
+  --accent-ink-rgb: 11 11 12;
+  --danger-rgb: 255 107 94;
+  --ok-rgb: 143 227 136;
+}
+
+* {
+  border-color: var(--border);
+}
+
+html {
+  scroll-behavior: smooth;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-sans), system-ui, sans-serif;
+  overflow-x: hidden;
+}
+
+/* Film grain overlay for atmosphere */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  opacity: 0.035;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+::selection {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: var(--bg);
+}
+::-webkit-scrollbar-thumb {
+  background: #2c2c32;
+  border-radius: 99px;
+  border: 2px solid var(--bg);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #3a3a42;
+}
+
+@layer components {
+  .shell {
+    @apply mx-auto w-full max-w-shell px-5 sm:px-8;
+  }
+
+  .eyebrow {
+    @apply font-mono text-[11px] uppercase tracking-label text-faint;
+  }
+
+  .display {
+    font-family: var(--font-serif), Georgia, serif;
+    font-weight: 400;
+    line-height: 0.98;
+    letter-spacing: -0.015em;
+  }
+
+  .accent-line {
+    color: var(--accent);
+    font-style: italic;
+  }
+
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-full font-medium transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-50;
+  }
+  .btn-primary {
+    @apply btn bg-accent px-5 py-2.5 text-sm text-accent-ink hover:brightness-110 active:scale-[0.98];
+  }
+  .btn-ghost {
+    @apply btn border border-border bg-transparent px-5 py-2.5 text-sm text-ink hover:border-faint hover:bg-surface;
+  }
+
+  .field-label {
+    @apply mb-1.5 block font-mono text-[11px] uppercase tracking-label text-muted;
+  }
+  .field-input {
+    @apply w-full rounded-xl border border-border bg-surface px-4 py-3 text-sm text-ink outline-none transition-colors placeholder:text-faint focus:border-accent/60 focus:bg-surface-2;
+  }
+
+  .card {
+    @apply rounded-2xl border border-border bg-surface;
+  }
+
+  .hairline {
+    background-image: linear-gradient(90deg, transparent, var(--border) 12%, var(--border) 88%, transparent);
+    height: 1px;
+  }
+}

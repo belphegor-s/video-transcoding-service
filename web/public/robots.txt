@@ -1,0 +1,6 @@
+User-agent: *
+Allow: /
+Disallow: /dashboard
+Disallow: /watch
+
+Sitemap: https://transcode.pixly.sh/sitemap.xml

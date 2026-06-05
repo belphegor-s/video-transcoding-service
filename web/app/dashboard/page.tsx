@@ -1,0 +1,115 @@
+"use client";
+
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Loader2, Plus, RefreshCw, Video as VideoIcon } from "lucide-react";
+import { AppHeader } from "@/components/app-header";
+import { UploadDialog } from "@/components/upload-dialog";
+import { VideoCard } from "@/components/video-card";
+import { isInFlight } from "@/components/status-badge";
+import { useAuth } from "@/lib/use-auth";
+import { api } from "@/lib/api";
+import type { Video } from "@/lib/types";
+
+export default function DashboardPage() {
+  const { user, loading: authLoading } = useAuth();
+  const [videos, setVideos] = useState<Video[] | null>(null);
+  const [showUpload, setShowUpload] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const load = useCallback(async (silent = false) => {
+    if (!silent) setRefreshing(true);
+    try {
+      const list = await api.videos();
+      list.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+      setVideos(list);
+    } catch {
+      // keep previous state on transient errors
+    } finally {
+      if (!silent) setRefreshing(false);
+    }
+  }, []);
+
+  // initial load once authenticated
+  useEffect(() => {
+    if (!authLoading && user) load();
+  }, [authLoading, user, load]);
+
+  // poll while any video is still processing
+  useEffect(() => {
+    const anyInFlight = videos?.some((v) => isInFlight(v.status));
+    if (pollRef.current) clearInterval(pollRef.current);
+    if (anyInFlight) {
+      pollRef.current = setInterval(() => load(true), 5000);
+    }
+    return () => {
+      if (pollRef.current) clearInterval(pollRef.current);
+    };
+  }, [videos, load]);
+
+  if (authLoading || !user) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <Loader2 className="h-6 w-6 animate-spin text-accent" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="relative z-10 min-h-screen">
+      <AppHeader user={user} />
+
+      <main className="shell py-10 sm:py-14">
+        <div className="mb-10 flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <p className="eyebrow mb-3">Your library</p>
+            <h1 className="font-serif text-4xl text-ink sm:text-5xl">Videos</h1>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => load()}
+              className="inline-flex items-center gap-2 rounded-full border border-border px-4 py-2.5 font-mono text-xs text-muted transition-colors hover:border-faint hover:text-ink"
+            >
+              <RefreshCw className={`h-3.5 w-3.5 ${refreshing ? "animate-spin" : ""}`} />
+              Refresh
+            </button>
+            <button onClick={() => setShowUpload(true)} className="btn-primary px-5 py-2.5">
+              <Plus className="h-4 w-4" />
+              Upload
+            </button>
+          </div>
+        </div>
+
+        {videos === null ? (
+          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="aspect-[4/5] animate-pulse rounded-2xl border border-border bg-surface" />
+            ))}
+          </div>
+        ) : videos.length === 0 ? (
+          <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-border py-24 text-center">
+            <div className="mb-5 inline-flex h-14 w-14 items-center justify-center rounded-2xl border border-border bg-surface">
+              <VideoIcon className="h-6 w-6 text-accent" strokeWidth={1.5} />
+            </div>
+            <h2 className="font-serif text-2xl text-ink">No videos yet</h2>
+            <p className="mt-2 max-w-xs text-sm text-muted">
+              Upload your first source file and watch it become an adaptive stream.
+            </p>
+            <button onClick={() => setShowUpload(true)} className="btn-primary mt-7 px-6 py-3">
+              <Plus className="h-4 w-4" />
+              Upload a video
+            </button>
+          </div>
+        ) : (
+          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            {videos.map((v) => (
+              <VideoCard key={v.video_id} video={v} />
+            ))}
+          </div>
+        )}
+      </main>
+
+      {showUpload && <UploadDialog onClose={() => setShowUpload(false)} onUploaded={() => load(true)} />}
+    </div>
+  );
+}

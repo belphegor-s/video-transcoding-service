@@ -8,9 +8,18 @@ import cors from "cors";
 
 const app = express();
 
+// Allowed browser origins, env-driven for production + localhost for local dev.
+const allowedOrigins = [process.env.CLIENT_APP_URL, "http://localhost:3000"].filter(Boolean) as string[];
+
 app.use(
   cors({
-    origin: "http://localhost:3000",
+    origin(origin, callback) {
+      // Allow non-browser clients (no Origin header) and any whitelisted origin.
+      if (!origin || allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+      return callback(new Error(`Origin ${origin} not allowed by CORS`));
+    },
     credentials: true,
   }),
 );
@@ -21,8 +30,14 @@ app.use(
   }),
 );
 
+app.get("/health", (_req, res) => {
+  res.status(200).json({ status: "ok" });
+});
+
 app.use("/api/v1", rootRoutes);
 
+// Sync the schema in the background. A DB hiccup must not stop the HTTP listener
+// from coming up, otherwise the platform health check never goes green.
 sequelize
   .sync({ alter: true })
   .then(() => {

@@ -31,9 +31,26 @@
     REDIS_USERNAME=""
     REDIS_PASSWORD=""
     REDIS_HOST=""
+    PORT="9191"
     CLOUDFRONT_URL=""
     CLOUDFRONT_PUBLIC_KEY_ID=""
+    CLOUDFRONT_PRIVATE_KEY="" # raw or base64 PEM; falls back to keys/private_key.pem locally
+    RESEND_API_KEY=""
+    CLIENT_APP_URL="http://localhost:3000" # frontend URL — drives CORS + email links
     ```
+  - _`/web/.env`_ (frontend)
+    ```env
+    NEXT_PUBLIC_API_BASE_URL="http://localhost:9191/api/v1"
+    ```
+
+---
+
+### Deployment
+
+- **Frontend** (`/web`, Next.js) and **API** (`/server`, Express) deploy as two apps on Coolify,
+  each built from its own `Dockerfile`. Production: web → `transcode.pixly.sh`, API →
+  `api.transcode.pixly.sh`.
+- The transcoding worker (`/transcoding-img`) runs on ECS Fargate; the trigger lives in `/lambdas`.
 
 ---
 
