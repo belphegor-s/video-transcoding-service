@@ -54,6 +54,13 @@ export function qualitiesFromVideo(video: Pick<Video, "transcoded_urls">): Quali
 export const LIFETIME_VIDEO_LIMIT = 5;
 export const MAX_FILE_BYTES = 1024 * 1024 * 1024; // 1 GB
 
+export interface Paginated<T> {
+  items: T[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
 export interface AuthUser {
   userId: string;
   email: string;

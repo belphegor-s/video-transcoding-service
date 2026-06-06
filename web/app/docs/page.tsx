@@ -104,7 +104,7 @@ export default function DocsPage() {
               errors in an <Code>error</Code> field. All timestamps are ISO-8601. You authenticate with an
               API key created from your dashboard.
             </p>
-            <CodeBlock label="response envelope" code={`// success\n{ "data": { /* ... */ } }\n\n// error\n{ "error": { "message": "Human-readable reason" } }`} />
+            <CodeBlock label="response envelope" lang="javascript" code={`// success\n{ "data": { /* ... */ } }\n\n// error\n{ "error": { "message": "Human-readable reason" } }`} />
           </section>
 
           <section className="space-y-5">
@@ -170,6 +170,7 @@ export default function DocsPage() {
               />
               <CodeBlock
                 label="response"
+              lang="json"
                 code={`{\n  "data": {\n    "url": "https://<bucket>.s3.<region>.amazonaws.com",\n    "fields": {\n      "Content-Type": "video/mp4",\n      "x-amz-meta-userId": "...",\n      "bucket": "...",\n      "X-Amz-Algorithm": "...",\n      "X-Amz-Credential": "...",\n      "X-Amz-Date": "...",\n      "key": "uploads/<userId>/video-<uuid>",\n      "Policy": "...",\n      "X-Amz-Signature": "..."\n    }\n  }\n}`}
               />
             </div>
@@ -194,7 +195,9 @@ export default function DocsPage() {
             <H id="status">Status lifecycle</H>
             <p className="leading-relaxed text-muted">A video moves through these states:</p>
             <CodeBlock
-              code={`signed_url_generated  → upload URL issued, awaiting the file\nuploaded              → file received, queued\ntranscoding           → ffmpeg is laddering renditions + captions\ntranscoded            → ready: HLS, MP4 downloads, captions, thumbnail\nerror                 → processing failed`}
+              label="states"
+              lang="text"
+              code={`signed_url_generated  -> upload URL issued, awaiting the file\nuploaded              -> file received, queued\ntranscoding           -> ffmpeg is laddering renditions + captions\ntranscoded            -> ready: HLS, MP4 downloads, captions, thumbnail\nerror                 -> processing failed`}
             />
           </section>
 
@@ -204,6 +207,7 @@ export default function DocsPage() {
             <CodeBlock label="bash" code={`curl ${BASE}/video/user-videos -H "x-api-key: $API_KEY"`} />
             <CodeBlock
               label="response (one video)"
+              lang="json"
               code={`{\n  "video_id": "0b3a927e-...",\n  "s3_key": "uploads/<userId>/video-<uuid>",\n  "original_filename": "clip.mp4",\n  "status": "transcoded",\n  "transcoded_urls": ["<userId>/video-<uuid>/1920x1080_hls/index.m3u8", "..."],\n  "master_playlist_url": "<userId>/video-<uuid>/master.m3u8",\n  "is_public": false,\n  "created_at": "2026-06-06T08:00:00.000Z"\n}`}
             />
             <Endpoint method="GET" path="/video/user-video?s3_key=" />
@@ -228,6 +232,7 @@ export default function DocsPage() {
             </p>
             <CodeBlock
               label="response"
+              lang="json"
               code={`{\n  "data": {\n    "available": true,\n    "language": "en",\n    "languages": ["en"],\n    "cues": [\n      { "start": 0.0, "end": 2.4, "text": "Hello and welcome." }\n    ]\n  }\n}`}
             />
           </section>
@@ -264,6 +269,7 @@ export default function DocsPage() {
             <p className="leading-relaxed text-muted">Once public, embed it anywhere with an iframe:</p>
             <CodeBlock
               label="html"
+              lang="html"
               code={`<iframe\n  src="https://transcode.pixly.sh/embed/${"<video_id>"}"\n  width="640" height="360"\n  style="border:0;border-radius:12px"\n  allow="autoplay; fullscreen; picture-in-picture"\n  allowfullscreen\n></iframe>`}
             />
           </section>
@@ -272,9 +278,11 @@ export default function DocsPage() {
             <H id="errors">Errors</H>
             <p className="leading-relaxed text-muted">Standard HTTP status codes; the body always carries a message.</p>
             <CodeBlock
+              label="status codes"
+              lang="text"
               code={`400  Bad request / validation error\n401  Missing, invalid, or expired API key\n403  Forbidden (e.g. limit reached, not your resource)\n404  Not found\n500  Server error`}
             />
-            <CodeBlock label="example" code={`{ "error": { "message": "API key expired" } }`} />
+            <CodeBlock label="example" lang="json" code={`{ "error": { "message": "API key expired" } }`} />
           </section>
 
           <div className="rounded-2xl border border-border bg-surface p-6">

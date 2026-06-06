@@ -9,9 +9,17 @@ import { env } from "../config/env";
 
 export const userVideosController = async (req: Request, res: Response) => {
   try {
+    const limit = Math.min(Math.max(parseInt(req.query.limit as string) || 12, 1), 50);
+    const offset = Math.max(parseInt(req.query.offset as string) || 0, 0);
     // @ts-ignore
-    const videos = await Video.findAll({ where: { user_id: req?.userId }, order: [["created_at", "DESC"]] });
-    return res.json({ data: videos });
+    const { rows, count } = await Video.findAndCountAll({
+      // @ts-ignore
+      where: { user_id: req?.userId },
+      order: [["created_at", "DESC"]],
+      limit,
+      offset,
+    });
+    return res.json({ data: { items: rows, total: count, limit, offset } });
   } catch (e: any) {
     console.error("Error occurred in userVideosController() -> ", e);
     return res.status(500).json({ error: { message: e?.message ?? "Internal server error!" } });
@@ -103,6 +111,20 @@ export const renameVideoController = async (req: Request, res: Response) => {
 };
 
 const videoIdQuery = z.object({ video_id: z.string().uuid() });
+
+export const videoByIdController = async (req: Request, res: Response) => {
+  try {
+    const { video_id } = videoIdQuery.parse(req.query);
+    // @ts-ignore
+    const video = await Video.findOne({ where: { video_id, user_id: req.userId } });
+    if (!video) return res.status(404).json({ error: { message: "Video not found" } });
+    return res.json({ data: video });
+  } catch (e: any) {
+    if (e instanceof z.ZodError) return res.status(400).json({ error: { message: "Invalid video_id" } });
+    console.error("videoByIdController ->", e);
+    return res.status(500).json({ error: { message: e?.message ?? "Internal server error!" } });
+  }
+};
 
 export const thumbnailController = async (req: Request, res: Response) => {
   try {

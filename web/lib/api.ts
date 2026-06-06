@@ -1,4 +1,4 @@
-import type { ApiKey, AuthUser, CreatedApiKey, PresignedPost, Transcription, Video } from "./types";
+import type { ApiKey, AuthUser, CreatedApiKey, Paginated, PresignedPost, Transcription, Video } from "./types";
 
 const BASE = (process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:9191/api/v1").replace(/\/$/, "");
 
@@ -152,7 +152,13 @@ export const api = {
   presignUpload: (fileType: string, fileName?: string) =>
     request<PresignedPost>("/upload/upload-videos", { auth: true, query: { fileType, fileName } }),
 
-  videos: () => request<Video[]>("/video/user-videos", { auth: true }),
+  videos: (limit = 12, offset = 0) =>
+    request<Paginated<Video>>("/video/user-videos", {
+      auth: true,
+      query: { limit: String(limit), offset: String(offset) },
+    }),
+
+  videoById: (videoId: string) => request<Video>("/video/by-id", { auth: true, query: { video_id: videoId } }),
 
   video: (s3_key: string) => request<Video>("/video/user-video", { auth: true, query: { s3_key } }),
 
@@ -193,10 +199,13 @@ export const api = {
     request<{ url: string }>("/public/video/thumbnail", { query: { video_id: videoId } }),
 
   // API keys
-  listApiKeys: () => request<ApiKey[]>("/api-keys", { auth: true }),
+  listApiKeys: (limit = 10, offset = 0) =>
+    request<Paginated<ApiKey>>("/api-keys", { auth: true, query: { limit: String(limit), offset: String(offset) } }),
 
   createApiKey: (name: string, expiresAt?: string | null) =>
     request<CreatedApiKey>("/api-keys", { method: "POST", auth: true, body: { name, expires_at: expiresAt ?? null } }),
+
+  rotateApiKey: (id: string) => request<CreatedApiKey>(`/api-keys/${id}/rotate`, { method: "POST", auth: true }),
 
   revokeApiKey: (id: string) => request<ApiKey>(`/api-keys/${id}`, { method: "DELETE", auth: true }),
 };

@@ -25,8 +25,8 @@ export default function WatchPage() {
   useEffect(() => {
     if (authLoading || !user) return;
     api
-      .videos()
-      .then((list) => setVideo(list.find((v) => v.video_id === videoId) ?? null))
+      .videoById(videoId)
+      .then((v) => setVideo(v))
       .catch(() => setVideo(null));
   }, [authLoading, user, videoId]);
 

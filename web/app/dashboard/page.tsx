@@ -7,50 +7,52 @@ import { AppHeader } from "@/components/app-header";
 import { UploadDialog } from "@/components/upload-dialog";
 import { VideoCard } from "@/components/video-card";
 import { LimitsBanner } from "@/components/limits-banner";
+import { Pagination } from "@/components/pagination";
 import { isInFlight } from "@/components/status-badge";
 import { useAuth } from "@/lib/use-auth";
 import { api } from "@/lib/api";
-import { LIFETIME_VIDEO_LIMIT, MAX_FILE_BYTES, type Video } from "@/lib/types";
+import { LIFETIME_VIDEO_LIMIT, MAX_FILE_BYTES, type Paginated, type Video } from "@/lib/types";
 
 const COUNTED: Video["status"][] = ["uploaded", "transcoding", "transcoded"];
+const PAGE_SIZE = 12;
 
 export default function DashboardPage() {
   const { user, loading: authLoading } = useAuth();
-  const [videos, setVideos] = useState<Video[] | null>(null);
+  const [data, setData] = useState<Paginated<Video> | null>(null);
+  const [offset, setOffset] = useState(0);
   const [showUpload, setShowUpload] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const load = useCallback(async (silent = false) => {
-    if (!silent) setRefreshing(true);
-    try {
-      const list = await api.videos();
-      list.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-      setVideos(list);
-    } catch {
-      // keep previous state on transient errors
-    } finally {
-      if (!silent) setRefreshing(false);
-    }
-  }, []);
+  const load = useCallback(
+    async (silent = false) => {
+      if (!silent) setRefreshing(true);
+      try {
+        setData(await api.videos(PAGE_SIZE, offset));
+      } catch {
+        // keep previous state on transient errors
+      } finally {
+        if (!silent) setRefreshing(false);
+      }
+    },
+    [offset],
+  );
 
-  // initial load once authenticated
   useEffect(() => {
     if (!authLoading && user) load();
   }, [authLoading, user, load]);
 
-  // poll while any video is still processing
+  // poll while any video on this page is still processing
   useEffect(() => {
-    const anyInFlight = videos?.some((v) => isInFlight(v.status));
+    const anyInFlight = data?.items.some((v) => isInFlight(v.status));
     if (pollRef.current) clearInterval(pollRef.current);
-    if (anyInFlight) {
-      pollRef.current = setInterval(() => load(true), 5000);
-    }
+    if (anyInFlight) pollRef.current = setInterval(() => load(true), 5000);
     return () => {
       if (pollRef.current) clearInterval(pollRef.current);
     };
-  }, [videos, load]);
+  }, [data, load]);
 
+  const videos = data?.items ?? null;
   const usedCount = videos?.filter((v) => COUNTED.includes(v.status)).length ?? 0;
   const unlimited = !!user?.unlimited;
   const atLimit = !unlimited && usedCount >= LIFETIME_VIDEO_LIMIT;
@@ -125,11 +127,14 @@ export default function DashboardPage() {
             </button>
           </div>
         ) : (
-          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-            {videos.map((v) => (
-              <VideoCard key={v.video_id} video={v} />
-            ))}
-          </div>
+          <>
+            <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+              {videos.map((v) => (
+                <VideoCard key={v.video_id} video={v} />
+              ))}
+            </div>
+            {data && <Pagination total={data.total} limit={data.limit} offset={data.offset} onChange={setOffset} noun="videos" />}
+          </>
         )}
       </main>
 

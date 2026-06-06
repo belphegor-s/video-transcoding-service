@@ -8,11 +8,13 @@ import {
   transcriptionController,
   userVideoController,
   userVideosController,
+  videoByIdController,
 } from "../controllers/video";
 const router = Router();
 
 router.get("/user-videos", userVideosController);
 router.get("/user-video", userVideoController);
+router.get("/by-id", videoByIdController);
 router.get("/stream", streamVideoController);
 router.get("/thumbnail", thumbnailController);
 router.get("/transcription", transcriptionController);

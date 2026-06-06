@@ -2,21 +2,26 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Check, Copy, KeyRound, Loader2, Plus, ShieldAlert, Trash2 } from "lucide-react";
+import { ArrowLeft, Check, Copy, KeyRound, Loader2, Plus, RefreshCw, ShieldAlert, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { AppHeader } from "@/components/app-header";
 import { Field } from "@/components/ui";
+import { Select } from "@/components/select";
+import { ConfirmModal } from "@/components/modal";
+import { Pagination } from "@/components/pagination";
 import { useAuth } from "@/lib/use-auth";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
-import type { ApiKey } from "@/lib/types";
+import type { ApiKey, Paginated } from "@/lib/types";
 
 const EXPIRY_PRESETS = [
   { label: "No expiry", days: null },
   { label: "30 days", days: 30 },
-  { label: "90 days", days: 365 / 4 },
+  { label: "90 days", days: 90 },
   { label: "1 year", days: 365 },
 ] as const;
+
+const PAGE_SIZE = 10;
 
 function statusClasses(status: ApiKey["status"]) {
   if (status === "active") return "text-ok";
@@ -31,20 +36,25 @@ function fmtDate(d: string | null) {
 
 export default function ApiKeysPage() {
   const { user, loading: authLoading } = useAuth();
-  const [keys, setKeys] = useState<ApiKey[] | null>(null);
+  const [data, setData] = useState<Paginated<ApiKey> | null>(null);
+  const [offset, setOffset] = useState(0);
   const [name, setName] = useState("");
   const [presetIdx, setPresetIdx] = useState(0);
   const [creating, setCreating] = useState(false);
-  const [revealKey, setRevealKey] = useState<string | null>(null);
+
+  const [revealKey, setRevealKey] = useState<{ key: string; rotated: boolean } | null>(null);
   const [copied, setCopied] = useState(false);
+
+  const [confirm, setConfirm] = useState<{ type: "revoke" | "rotate"; key: ApiKey } | null>(null);
+  const [actionLoading, setActionLoading] = useState(false);
 
   const load = useCallback(async () => {
     try {
-      setKeys(await api.listApiKeys());
+      setData(await api.listApiKeys(PAGE_SIZE, offset));
     } catch {
       /* keep previous */
     }
-  }, []);
+  }, [offset]);
 
   useEffect(() => {
     if (!authLoading && user) load();
@@ -60,7 +70,7 @@ export default function ApiKeysPage() {
       const days = EXPIRY_PRESETS[presetIdx].days;
       const expiresAt = days ? new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString() : null;
       const created = await api.createApiKey(name.trim(), expiresAt);
-      setRevealKey(created.key);
+      setRevealKey({ key: created.key, rotated: false });
       setName("");
       setPresetIdx(0);
       toast.success("API key created");
@@ -72,20 +82,30 @@ export default function ApiKeysPage() {
     }
   };
 
-  const revoke = async (key: ApiKey) => {
-    if (!confirm(`Revoke "${key.name}"? Applications using it will stop working immediately.`)) return;
+  const runConfirm = async () => {
+    if (!confirm) return;
+    setActionLoading(true);
     try {
-      await api.revokeApiKey(key.api_key_id);
-      toast.success("Key revoked");
+      if (confirm.type === "revoke") {
+        await api.revokeApiKey(confirm.key.api_key_id);
+        toast.success("Key revoked");
+      } else {
+        const rotated = await api.rotateApiKey(confirm.key.api_key_id);
+        setRevealKey({ key: rotated.key, rotated: true });
+        toast.success("Key rotated");
+      }
+      setConfirm(null);
       load();
     } catch (e: any) {
-      toast.error(e?.message ?? "Couldn't revoke key");
+      toast.error(e?.message ?? "Action failed");
+    } finally {
+      setActionLoading(false);
     }
   };
 
   const copyKey = () => {
     if (!revealKey) return;
-    navigator.clipboard.writeText(revealKey);
+    navigator.clipboard.writeText(revealKey.key);
     setCopied(true);
     toast.success("Key copied");
     setTimeout(() => setCopied(false), 1800);
@@ -99,6 +119,8 @@ export default function ApiKeysPage() {
     );
   }
 
+  const keys = data?.items ?? null;
+
   return (
     <div className="relative z-10 min-h-screen">
       <AppHeader user={user} />
@@ -109,26 +131,31 @@ export default function ApiKeysPage() {
           Back to library
         </Link>
 
-        <div className="mb-8 flex items-end justify-between">
+        <div className="mb-8 flex items-end justify-between gap-4">
           <div>
             <p className="eyebrow mb-3">Developer</p>
             <h1 className="font-serif text-4xl text-ink sm:text-5xl">API keys</h1>
           </div>
-          <Link href="/docs" className="btn-ghost px-4 py-2.5">
+          <Link href="/docs" className="btn-ghost shrink-0 px-4 py-2.5">
             Read the docs
           </Link>
         </div>
 
-        {/* reveal newly-created key */}
+        {/* reveal newly created / rotated key */}
         {revealKey && (
           <div className="mb-8 rounded-2xl border border-accent/40 bg-accent/5 p-5">
             <div className="mb-3 flex items-center gap-2 text-accent">
               <ShieldAlert className="h-4 w-4" />
-              <p className="font-mono text-xs uppercase tracking-label">Copy your key now</p>
+              <p className="font-mono text-xs uppercase tracking-label">
+                {revealKey.rotated ? "New key — copy it now" : "Copy your key now"}
+              </p>
             </div>
-            <p className="mb-3 text-sm text-muted">This is the only time the full key is shown. Store it somewhere safe.</p>
+            <p className="mb-3 text-sm text-muted">
+              This is the only time the full key is shown.{revealKey.rotated ? " The previous key has stopped working." : ""} Store it
+              somewhere safe.
+            </p>
             <div className="flex items-center gap-2 rounded-lg border border-border bg-bg p-3">
-              <code className="flex-1 overflow-x-auto whitespace-nowrap font-mono text-sm text-ink">{revealKey}</code>
+              <code className="flex-1 overflow-x-auto whitespace-nowrap font-mono text-sm text-ink">{revealKey.key}</code>
               <button onClick={copyKey} className="inline-flex shrink-0 items-center gap-1 rounded-md border border-border bg-surface px-2.5 py-1.5 font-mono text-[11px] text-muted hover:text-ink">
                 {copied ? <Check className="h-3.5 w-3.5 text-ok" /> : <Copy className="h-3.5 w-3.5" />}
                 {copied ? "Copied" : "Copy"}
@@ -152,17 +179,12 @@ export default function ApiKeysPage() {
             </div>
             <div className="sm:w-44">
               <label className="field-label">Expires</label>
-              <select
+              <Select
+                ariaLabel="Expiry"
                 value={presetIdx}
-                onChange={(e) => setPresetIdx(Number(e.target.value))}
-                className="field-input cursor-pointer"
-              >
-                {EXPIRY_PRESETS.map((p, i) => (
-                  <option key={p.label} value={i} className="bg-surface">
-                    {p.label}
-                  </option>
-                ))}
-              </select>
+                onChange={setPresetIdx}
+                options={EXPIRY_PRESETS.map((p, i) => ({ label: p.label, value: i }))}
+              />
             </div>
             <button onClick={create} disabled={creating} className="btn-primary px-5 py-3">
               {creating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
@@ -182,35 +204,70 @@ export default function ApiKeysPage() {
             <p className="text-sm text-muted">No API keys yet. Create one above to start using the API.</p>
           </div>
         ) : (
-          <ul className="space-y-3">
-            {keys.map((k) => (
-              <li key={k.api_key_id} className="card flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2">
-                    <p className="truncate text-sm text-ink">{k.name}</p>
-                    <span className={cn("font-mono text-[10px] uppercase tracking-label", statusClasses(k.status))}>· {k.status}</span>
+          <>
+            <ul className="space-y-3">
+              {keys.map((k) => (
+                <li key={k.api_key_id} className="card flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <p className="truncate text-sm text-ink">{k.name}</p>
+                      <span className={cn("font-mono text-[10px] uppercase tracking-label", statusClasses(k.status))}>· {k.status}</span>
+                    </div>
+                    <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 font-mono text-[11px] text-faint">
+                      <code className="text-muted">{k.key_prefix}••••••••</code>
+                      <span>created {fmtDate(k.created_at)}</span>
+                      <span>last used {k.last_used_at ? fmtDate(k.last_used_at) : "never"}</span>
+                      <span>expires {fmtDate(k.expires_at)}</span>
+                    </div>
                   </div>
-                  <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 font-mono text-[11px] text-faint">
-                    <code className="text-muted">{k.key_prefix}••••••••</code>
-                    <span>created {fmtDate(k.created_at)}</span>
-                    <span>last used {k.last_used_at ? fmtDate(k.last_used_at) : "never"}</span>
-                    <span>expires {fmtDate(k.expires_at)}</span>
-                  </div>
-                </div>
-                {!k.revoked && (
-                  <button
-                    onClick={() => revoke(k)}
-                    className="inline-flex shrink-0 items-center gap-1.5 self-start rounded-full border border-border px-3 py-1.5 font-mono text-[11px] text-muted transition-colors hover:border-danger/50 hover:text-danger sm:self-auto"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                    Revoke
-                  </button>
-                )}
-              </li>
-            ))}
-          </ul>
+                  {!k.revoked && (
+                    <div className="flex shrink-0 items-center gap-2 self-start sm:self-auto">
+                      <button
+                        onClick={() => setConfirm({ type: "rotate", key: k })}
+                        className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 font-mono text-[11px] text-muted transition-colors hover:border-faint hover:text-ink"
+                      >
+                        <RefreshCw className="h-3.5 w-3.5" />
+                        Rotate
+                      </button>
+                      <button
+                        onClick={() => setConfirm({ type: "revoke", key: k })}
+                        className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 font-mono text-[11px] text-muted transition-colors hover:border-danger/50 hover:text-danger"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                        Revoke
+                      </button>
+                    </div>
+                  )}
+                </li>
+              ))}
+            </ul>
+            {data && <Pagination total={data.total} limit={data.limit} offset={data.offset} onChange={setOffset} noun="keys" />}
+          </>
         )}
       </main>
+
+      <ConfirmModal
+        open={!!confirm}
+        onClose={() => setConfirm(null)}
+        onConfirm={runConfirm}
+        loading={actionLoading}
+        destructive={confirm?.type === "revoke"}
+        confirmLabel={confirm?.type === "revoke" ? "Revoke key" : "Rotate key"}
+        title={confirm?.type === "revoke" ? "Revoke API key?" : "Rotate API key?"}
+        description={
+          confirm?.type === "revoke" ? (
+            <>
+              <span className="text-ink">{confirm?.key.name}</span> will stop working immediately. Apps using it will start
+              getting 401s. This can't be undone.
+            </>
+          ) : (
+            <>
+              A new secret will be issued for <span className="text-ink">{confirm?.key.name}</span> and shown once. The current
+              key stops working immediately.
+            </>
+          )
+        }
+      />
     </div>
   );
 }

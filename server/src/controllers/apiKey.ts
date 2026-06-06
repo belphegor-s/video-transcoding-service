@@ -70,11 +70,37 @@ export const createApiKeyController = async (req: Request, res: Response) => {
 
 export const listApiKeysController = async (req: Request, res: Response) => {
   try {
+    const limit = Math.min(Math.max(parseInt(req.query.limit as string) || 10, 1), 50);
+    const offset = Math.max(parseInt(req.query.offset as string) || 0, 0);
     // @ts-ignore
-    const keys = await ApiKey.findAll({ where: { user_id: req.userId }, order: [["created_at", "DESC"]] });
-    return res.json({ data: keys.map(present) });
+    const { rows, count } = await ApiKey.findAndCountAll({
+      // @ts-ignore
+      where: { user_id: req.userId },
+      order: [["created_at", "DESC"]],
+      limit,
+      offset,
+    });
+    return res.json({ data: { items: rows.map(present), total: count, limit, offset } });
   } catch (e: any) {
     console.error("listApiKeysController ->", e);
+    return res.status(500).json({ error: { message: e?.message ?? "Internal server error!" } });
+  }
+};
+
+export const rotateApiKeyController = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    // @ts-ignore
+    const record = await ApiKey.findOne({ where: { api_key_id: id, user_id: req.userId } });
+    if (!record) return res.status(404).json({ error: { message: "API key not found" } });
+
+    const { key, key_prefix, key_hash } = generateApiKey();
+    await record.update({ key_prefix, key_hash, last_used_at: null, revoked: false });
+
+    // New secret returned exactly once; the old one stops working immediately.
+    return res.json({ data: { ...present(record), key } });
+  } catch (e: any) {
+    console.error("rotateApiKeyController ->", e);
     return res.status(500).json({ error: { message: e?.message ?? "Internal server error!" } });
   }
 };
