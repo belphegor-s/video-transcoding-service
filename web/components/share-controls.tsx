@@ -5,6 +5,7 @@ import { Check, Copy, ExternalLink, Globe, Loader2, Lock } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
+import { Highlighted } from "./highlighted";
 
 export function ShareControls({ videoId, initialPublic }: { videoId: string; initialPublic: boolean }) {
   const [isPublic, setIsPublic] = useState(initialPublic);
@@ -84,7 +85,7 @@ export function ShareControls({ videoId, initialPublic }: { videoId: string; ini
           </div>
 
           <div className="rounded-lg border border-border bg-bg p-3">
-            <code className="block whitespace-pre-wrap break-all font-mono text-[11px] leading-relaxed text-muted">{embedCode}</code>
+            <Highlighted code={embedCode} lang="html" wrap />
           </div>
 
           <p className="truncate font-mono text-[11px] text-faint">

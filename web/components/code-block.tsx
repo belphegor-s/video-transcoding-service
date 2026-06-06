@@ -2,8 +2,9 @@
 
 import { useState } from "react";
 import { Check, Copy } from "lucide-react";
+import { Highlighted } from "./highlighted";
 
-export function CodeBlock({ code, label }: { code: string; label?: string }) {
+export function CodeBlock({ code, label, lang }: { code: string; label?: string; lang?: string }) {
   const [copied, setCopied] = useState(false);
   const copy = () => {
     navigator.clipboard.writeText(code);
@@ -23,9 +24,9 @@ export function CodeBlock({ code, label }: { code: string; label?: string }) {
         {copied ? <Check className="h-3 w-3 text-ok" /> : <Copy className="h-3 w-3" />}
         {copied ? "Copied" : "Copy"}
       </button>
-      <pre className="overflow-x-auto px-4 py-3.5 font-mono text-[12.5px] leading-relaxed text-muted">
-        <code>{code}</code>
-      </pre>
+      <div className="px-4 py-3.5">
+        <Highlighted code={code} lang={lang ?? label ?? "bash"} />
+      </div>
     </div>
   );
 }
