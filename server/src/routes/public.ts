@@ -1,5 +1,6 @@
 import { Router } from "express";
 import {
+  publicCaptionsController,
   publicMetaController,
   publicStreamController,
   publicThumbnailController,
@@ -12,5 +13,6 @@ router.get("/meta", publicMetaController);
 router.get("/stream", publicStreamController);
 router.get("/thumbnail", publicThumbnailController);
 router.get("/transcription", publicTranscriptionController);
+router.get("/captions", publicCaptionsController);
 
 export default router;

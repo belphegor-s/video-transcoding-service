@@ -40,6 +40,12 @@ export interface Quality {
   width: number;
 }
 
+export interface CaptionTrack {
+  lang: string;
+  label: string;
+  path: string;
+}
+
 /** Derive available qualities from rendition keys (mirrors the server). */
 export function qualitiesFromVideo(video: Pick<Video, "transcoded_urls">): Quality[] {
   return (video.transcoded_urls ?? [])

@@ -3,7 +3,7 @@ import { z } from "zod";
 import Video from "../models/Video";
 import { streamHls } from "../utils/streamHls";
 import { getSignedCloudFrontUrl } from "../utils/getSignedCloudFrontUrl";
-import { fetchTranscription, getOrCreateThumbnail, parseQualities } from "../utils/media";
+import { captionTracks, fetchTranscription, getOrCreateThumbnail, parseQualities } from "../utils/media";
 
 const idQuery = z.object({ video_id: z.string().uuid({ message: "Invalid video_id" }) });
 
@@ -60,6 +60,14 @@ export const publicThumbnailController = async (req: Request, res: Response) => 
   } catch (e) {
     return res.status(500).json({ error: { message: "Failed to generate thumbnail" } });
   }
+};
+
+export const publicCaptionsController = async (req: Request, res: Response) => {
+  const parsed = idQuery.safeParse(req.query);
+  if (!parsed.success) return res.status(400).json({ error: { message: "Invalid video_id" } });
+  const video = await loadPublicVideo(parsed.data.video_id);
+  if (!video) return res.json({ data: { tracks: [] } });
+  return res.json({ data: { tracks: captionTracks(video) } });
 };
 
 export const publicTranscriptionController = async (req: Request, res: Response) => {

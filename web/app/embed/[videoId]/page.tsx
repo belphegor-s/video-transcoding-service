@@ -35,6 +35,7 @@ export default function EmbedPage() {
       ) : (
         <VideoPlayer
           src={publicStreamUrl(videoId)}
+          videoId={videoId}
           title={meta.title}
           poster={poster}
           authed={false}

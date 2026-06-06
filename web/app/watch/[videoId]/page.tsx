@@ -68,7 +68,7 @@ export default function WatchPage() {
             {/* left: player + meta + downloads */}
             <div className="min-w-0">
               {video.status === "transcoded" ? (
-                <VideoPlayer src={streamUrl(video.video_id)} title={title} poster={poster} authed />
+                <VideoPlayer src={streamUrl(video.video_id)} videoId={video.video_id} title={title} poster={poster} authed />
               ) : (
                 <div className="flex aspect-video flex-col items-center justify-center gap-4 rounded-2xl border border-border bg-surface text-center">
                   {video.status === "error" ? (

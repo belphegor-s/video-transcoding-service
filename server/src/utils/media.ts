@@ -247,6 +247,32 @@ export async function fetchTranscription(video: Video): Promise<TranscriptionRes
   }
 }
 
+export interface CaptionTrack {
+  lang: string;
+  label: string;
+  path: string; // s3 key of the .vtt, fetched via the stream proxy
+}
+
+function langLabel(lang: string): string {
+  const map: Record<string, string> = { en: "English", es: "Spanish", fr: "French", de: "German", hi: "Hindi", pt: "Portuguese", ja: "Japanese", zh: "Chinese", ar: "Arabic", ru: "Russian" };
+  return map[lang] ?? lang.toUpperCase();
+}
+
+/** Caption tracks declared in caption_urls (defaults English first). */
+export function captionTracks(video: Video): CaptionTrack[] {
+  if (!video.caption_urls) return [];
+  let map: Record<string, { vtt?: string }>;
+  try {
+    map = JSON.parse(video.caption_urls);
+  } catch {
+    return [];
+  }
+  return Object.entries(map)
+    .filter(([, u]) => u?.vtt)
+    .map(([lang, u]) => ({ lang, label: langLabel(lang), path: u.vtt as string }))
+    .sort((a, b) => (a.lang === "en" ? -1 : b.lang === "en" ? 1 : a.lang.localeCompare(b.lang)));
+}
+
 /** Build a download filename from the original name (or fall back to the id). */
 export function downloadBaseName(video: Video): string {
   const raw = video.original_filename?.replace(/\.[^.]+$/, "") || video.s3_key.split("/").pop() || "video";

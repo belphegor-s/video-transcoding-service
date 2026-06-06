@@ -34,7 +34,7 @@ async function ensureFolderPath(userId: string, path: string) {
 import jwt, { Secret } from "jsonwebtoken";
 import { streamHls } from "../utils/streamHls";
 import { getSignedCloudFrontUrl } from "../utils/getSignedCloudFrontUrl";
-import { fetchTranscription, getOrCreateThumbnail } from "../utils/media";
+import { captionTracks, fetchTranscription, getOrCreateThumbnail } from "../utils/media";
 import { env } from "../config/env";
 
 export const userVideosController = async (req: Request, res: Response) => {
@@ -260,6 +260,20 @@ export const thumbnailController = async (req: Request, res: Response) => {
     if (e instanceof z.ZodError) return res.status(400).json({ error: { message: "Invalid video_id" } });
     console.error("Error in thumbnailController ->", e);
     return res.status(500).json({ error: { message: "Failed to generate thumbnail" } });
+  }
+};
+
+export const captionsController = async (req: Request, res: Response) => {
+  try {
+    const { video_id } = videoIdQuery.parse(req.query);
+    // @ts-ignore
+    const video = await Video.findOne({ where: { video_id, user_id: req.userId } });
+    if (!video || video.status !== "transcoded") return res.json({ data: { tracks: [] } });
+    return res.json({ data: { tracks: captionTracks(video) } });
+  } catch (e: any) {
+    if (e instanceof z.ZodError) return res.status(400).json({ error: { message: "Invalid video_id" } });
+    console.error("captionsController ->", e);
+    return res.status(500).json({ error: { message: "Failed to load captions" } });
   }
 };
 

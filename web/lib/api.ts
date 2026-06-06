@@ -1,4 +1,4 @@
-import type { ApiKey, AuthUser, CreatedApiKey, Paginated, PresignedPost, Transcription, Video } from "./types";
+import type { ApiKey, AuthUser, CaptionTrack, CreatedApiKey, Paginated, PresignedPost, Transcription, Video } from "./types";
 
 const BASE = (process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:9191/api/v1").replace(/\/$/, "");
 
@@ -192,6 +192,12 @@ export const api = {
   transcription: (videoId: string) =>
     request<Transcription>("/video/transcription", { auth: true, query: { video_id: videoId } }),
 
+  captions: (videoId: string) =>
+    request<{ tracks: CaptionTrack[] }>("/video/captions", { auth: true, query: { video_id: videoId } }),
+
+  publicCaptions: (videoId: string) =>
+    request<{ tracks: CaptionTrack[] }>("/public/video/captions", { query: { video_id: videoId } }),
+
   setVisibility: (videoId: string, isPublic: boolean) =>
     request<{ video_id: string; is_public: boolean }>("/video/visibility", {
       method: "PATCH",
@@ -256,4 +262,10 @@ export function downloadAllUrl(videoId: string, token: string): string {
 
 export function bulkDownloadUrl(videoIds: string[], token: string): string {
   return `${BASE}/download/bulk?ids=${encodeURIComponent(videoIds.join(","))}&token=${encodeURIComponent(token)}`;
+}
+
+/** URL that serves a caption .vtt (via the stream proxy) for the given path. */
+export function captionVttUrl(videoId: string, path: string, isPublic: boolean): string {
+  const base = isPublic ? "/public/video/stream" : "/video/stream";
+  return `${BASE}${base}?video_id=${encodeURIComponent(videoId)}&path=${encodeURIComponent(path)}`;
 }
