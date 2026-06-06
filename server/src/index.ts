@@ -1,5 +1,4 @@
-import "dotenv/config";
-const PORT = process.env?.PORT ?? 8080;
+import { env } from "./config/env";
 
 import express from "express";
 import rootRoutes from "./routes/root";
@@ -9,7 +8,7 @@ import cors from "cors";
 const app = express();
 
 // Allowed browser origins, env-driven for production + localhost for local dev.
-const allowedOrigins = [process.env.CLIENT_APP_URL, "http://localhost:3000"].filter(Boolean) as string[];
+const allowedOrigins = [env.CLIENT_APP_URL, "http://localhost:3000"];
 
 app.use(
   cors({
@@ -46,6 +45,6 @@ sequelize
     console.error("Error synchronizing database:", err);
   });
 
-app.listen(PORT, () => {
-  console.log(`listening on http://localhost:${PORT}`);
+app.listen(env.PORT, () => {
+  console.log(`listening on http://localhost:${env.PORT}`);
 });

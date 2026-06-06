@@ -1,9 +1,9 @@
-import "dotenv/config";
 import { NextFunction, Request, Response } from "express";
 import jwt, { Secret } from "jsonwebtoken";
 import User from "../models/User";
 import ApiKey from "../models/ApiKey";
 import { hashApiKey, looksLikeApiKey } from "../utils/apiKey";
+import { env } from "../config/env";
 
 function attach(req: Request, user: User, via: "jwt" | "apikey") {
   // @ts-ignore
@@ -57,7 +57,7 @@ export default async function isAuth(req: Request, res: Response, next: NextFunc
 
   let decodedToken: any;
   try {
-    decodedToken = jwt.verify(bearer, process.env.JWT_ACCESS_TOKEN_SECRET as Secret);
+    decodedToken = jwt.verify(bearer, env.JWT_ACCESS_TOKEN_SECRET as Secret);
   } catch {
     return res.status(401).json({ error: { message: "Invalid or expired token" } });
   }

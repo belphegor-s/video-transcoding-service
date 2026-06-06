@@ -1,4 +1,3 @@
-import "dotenv/config";
 import { Request, Response } from "express";
 import { z } from "zod";
 import { Op } from "sequelize";

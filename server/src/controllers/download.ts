@@ -9,6 +9,7 @@ const createArchiver = require("archiver") as (
 ) => import("archiver").Archiver;
 import Video from "../models/Video";
 import { downloadBaseName, parseQualities, remuxRenditionToMp4 } from "../utils/media";
+import { env } from "../config/env";
 
 interface DownloadClaims {
   userId: string;
@@ -24,7 +25,7 @@ async function resolveFromToken(req: Request): Promise<Video | null> {
 
   let claims: DownloadClaims;
   try {
-    claims = jwt.verify(token, process.env.JWT_ACCESS_TOKEN_SECRET as Secret) as DownloadClaims;
+    claims = jwt.verify(token, env.JWT_ACCESS_TOKEN_SECRET as Secret) as DownloadClaims;
   } catch {
     return null;
   }

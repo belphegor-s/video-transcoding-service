@@ -1,6 +1,7 @@
 import { getSignedUrl } from "aws-cloudfront-sign";
 import fs from "fs";
 import path from "path";
+import { env } from "../config/env";
 
 let cachedPrivateKey: string | null = null;
 
@@ -13,7 +14,7 @@ let cachedPrivateKey: string | null = null;
 const getPrivateKey = (): string => {
   if (cachedPrivateKey) return cachedPrivateKey;
 
-  const fromEnv = process.env.CLOUDFRONT_PRIVATE_KEY;
+  const fromEnv = env.CLOUDFRONT_PRIVATE_KEY;
   if (fromEnv && fromEnv.trim()) {
     const value = fromEnv.includes("BEGIN") ? fromEnv : Buffer.from(fromEnv, "base64").toString("utf8");
     cachedPrivateKey = value.replace(/\\n/g, "\n");
@@ -27,8 +28,8 @@ const getPrivateKey = (): string => {
 export const getSignedCloudFrontUrl = (resourcePath: string, expiresInHours = 12) => {
   const expireTime = Math.floor(Date.now()) + expiresInHours * 60 * 60 * 1000;
 
-  const signedUrl = getSignedUrl(`${process.env.CLOUDFRONT_URL!}/${resourcePath}`, {
-    keypairId: process.env.CLOUDFRONT_PUBLIC_KEY_ID!,
+  const signedUrl = getSignedUrl(`${env.CLOUDFRONT_URL}/${resourcePath}`, {
+    keypairId: env.CLOUDFRONT_PUBLIC_KEY_ID,
     privateKeyString: getPrivateKey(),
     expireTime,
   });

@@ -7,6 +7,7 @@ import jwt, { Secret } from "jsonwebtoken";
 import { passwordResetEmail, verifyEmailTemplate } from "../email_templates/email";
 import { sendEmail } from "../lib/sendEmail";
 import { isUnlimited } from "../utils/account";
+import { env } from "../config/env";
 
 const ACCESS_TOKEN_EXPIRES_IN = 60 * 60; // 1 hour
 const REFRESH_TOKEN_EXPIRES_IN = 7 * 24 * 60 * 60; // 7 days
@@ -44,7 +45,7 @@ export const createUserController = async (req: Request, res: Response) => {
       verify_token_expiry: verifyTokenExpiry,
     });
 
-    const verifyLink = `${process.env.CLIENT_APP_URL}/verify-email?token=${verifyToken}`;
+    const verifyLink = `${env.CLIENT_APP_URL}/verify-email?token=${verifyToken}`;
 
     const { subject, html } = verifyEmailTemplate({
       verifyLink,
@@ -124,8 +125,8 @@ export const loginUserController = async (req: Request, res: Response) => {
       return res.status(400).json({ error: { message: "Password is invalid" } });
     }
 
-    const accessToken = jwt.sign({ userId: existingUser.user_id, email }, process.env.JWT_ACCESS_TOKEN_SECRET as Secret, { expiresIn: `${ACCESS_TOKEN_EXPIRES_IN}s` });
-    const refreshToken = jwt.sign({ userId: existingUser.user_id, email }, process.env.JWT_REFRESH_TOKEN_SECRET as Secret, { expiresIn: `${REFRESH_TOKEN_EXPIRES_IN}s` });
+    const accessToken = jwt.sign({ userId: existingUser.user_id, email }, env.JWT_ACCESS_TOKEN_SECRET as Secret, { expiresIn: `${ACCESS_TOKEN_EXPIRES_IN}s` });
+    const refreshToken = jwt.sign({ userId: existingUser.user_id, email }, env.JWT_REFRESH_TOKEN_SECRET as Secret, { expiresIn: `${REFRESH_TOKEN_EXPIRES_IN}s` });
 
     return res.json({
       data: {
@@ -157,15 +158,15 @@ export const tokenRefreshController = async (req: Request, res: Response) => {
   try {
     const { refreshToken: refreshTokenPayload } = tokenRefreshSchema.parse(req.body);
 
-    const decodedToken = jwt.verify(refreshTokenPayload, process.env.JWT_REFRESH_TOKEN_SECRET as Secret) as { userId: string; email: string };
+    const decodedToken = jwt.verify(refreshTokenPayload, env.JWT_REFRESH_TOKEN_SECRET as Secret) as { userId: string; email: string };
 
     if (!decodedToken) {
       return res.status(400).json({ error: { message: "Token invalid" } });
     }
 
-    const accessToken = jwt.sign({ userId: decodedToken.userId, email: decodedToken.email }, process.env.JWT_ACCESS_TOKEN_SECRET as Secret, { expiresIn: `${ACCESS_TOKEN_EXPIRES_IN}s` });
+    const accessToken = jwt.sign({ userId: decodedToken.userId, email: decodedToken.email }, env.JWT_ACCESS_TOKEN_SECRET as Secret, { expiresIn: `${ACCESS_TOKEN_EXPIRES_IN}s` });
 
-    const refreshToken = jwt.sign({ userId: decodedToken.userId, email: decodedToken.email }, process.env.JWT_REFRESH_TOKEN_SECRET as Secret, { expiresIn: `${REFRESH_TOKEN_EXPIRES_IN}s` });
+    const refreshToken = jwt.sign({ userId: decodedToken.userId, email: decodedToken.email }, env.JWT_REFRESH_TOKEN_SECRET as Secret, { expiresIn: `${REFRESH_TOKEN_EXPIRES_IN}s` });
 
     return res.json({
       data: {
@@ -212,7 +213,7 @@ export const requestResetPassword = async (req: Request, res: Response) => {
       reset_token_expiry: expiry,
     });
 
-    const resetLink = `${process.env.CLIENT_APP_URL}/reset-password?token=${resetToken}`;
+    const resetLink = `${env.CLIENT_APP_URL}/reset-password?token=${resetToken}`;
 
     const { subject, html } = passwordResetEmail({
       resetLink,

@@ -7,9 +7,10 @@ import path from "path";
 import { randomUUID } from "crypto";
 import { Readable } from "stream";
 import s3 from "../lib/s3";
+import { env } from "../config/env";
 import type Video from "../models/Video";
 
-const BUCKET = process.env.S3_BUCKET_NAME!;
+const BUCKET = env.S3_BUCKET_NAME;
 
 /* --------------------------------- S3 I/O --------------------------------- */
 

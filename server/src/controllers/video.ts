@@ -5,6 +5,7 @@ import jwt, { Secret } from "jsonwebtoken";
 import { streamHls } from "../utils/streamHls";
 import { getSignedCloudFrontUrl } from "../utils/getSignedCloudFrontUrl";
 import { fetchTranscription, getOrCreateThumbnail } from "../utils/media";
+import { env } from "../config/env";
 
 export const userVideosController = async (req: Request, res: Response) => {
   try {
@@ -146,7 +147,7 @@ export const downloadTokenController = async (req: Request, res: Response) => {
     const video = await Video.findOne({ where: { video_id, user_id: userId, status: "transcoded" } });
     if (!video) return res.status(404).json({ error: { message: "Video not available" } });
 
-    const token = jwt.sign({ userId, video_id, purpose: "download" }, process.env.JWT_ACCESS_TOKEN_SECRET as Secret, {
+    const token = jwt.sign({ userId, video_id, purpose: "download" }, env.JWT_ACCESS_TOKEN_SECRET as Secret, {
       expiresIn: "10m",
     });
     return res.json({ data: { token } });
