@@ -62,7 +62,7 @@ export default function DashboardPage() {
   const [renameTarget, setRenameTarget] = useState<Video | null>(null);
   const [renameDraft, setRenameDraft] = useState("");
   const [renaming, setRenaming] = useState(false);
-  const [dl, setDl] = useState<{ received: number; count: number } | null>(null);
+  const [dl, setDl] = useState<{ phase: "preparing" | "downloading"; received: number; total: number; count: number } | null>(null);
 
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -165,14 +165,17 @@ export default function DashboardPage() {
 
   const bulkDownload = async (ids: string[]) => {
     if (ids.length === 0) return;
-    setDl({ received: 0, count: ids.length });
+    setDl({ phase: "preparing", received: 0, total: 0, count: ids.length });
     try {
       const { token } = await api.bulkDownloadToken();
+      // fetch resolves once headers arrive, i.e. after the server finishes remuxing.
       const res = await fetch(bulkDownloadUrl(ids, token));
       if (!res.ok || !res.body) {
         const j = await res.json().catch(() => ({}));
         throw new Error(j?.error?.message || "Download failed");
       }
+      const total = Number(res.headers.get("X-Total-Bytes")) || 0;
+      setDl({ phase: "downloading", received: 0, total, count: ids.length });
       const reader = res.body.getReader();
       const chunks: Uint8Array[] = [];
       let received = 0;
@@ -181,7 +184,7 @@ export default function DashboardPage() {
         if (done) break;
         chunks.push(value);
         received += value.length;
-        setDl({ received, count: ids.length });
+        setDl({ phase: "downloading", received, total, count: ids.length });
       }
       const blob = new Blob(chunks as BlobPart[], { type: "application/zip" });
       const url = URL.createObjectURL(blob);
@@ -441,14 +444,32 @@ export default function DashboardPage() {
         <Modal open onClose={() => {}} className="max-w-xs">
           <div className="flex flex-col items-center gap-3 py-2 text-center">
             <Loader2 className="h-7 w-7 animate-spin text-accent" />
-            <p className="text-sm text-ink">
-              Zipping {dl.count} {dl.count === 1 ? "video" : "videos"}…
-            </p>
-            <p className="font-mono text-xs text-muted">{(dl.received / 1048576).toFixed(1)} MB downloaded</p>
-            <div className="relative h-1 w-full overflow-hidden rounded-full bg-surface-2">
-              <div className="absolute inset-y-0 w-1/3 rounded-full bg-accent" style={{ animation: "kdlbar 1.1s ease-in-out infinite" }} />
-              <style>{`@keyframes kdlbar{0%{left:-35%}100%{left:100%}}`}</style>
-            </div>
+            {dl.phase === "preparing" ? (
+              <>
+                <p className="text-sm text-ink">
+                  Preparing {dl.count} {dl.count === 1 ? "video" : "videos"}…
+                </p>
+                <p className="font-mono text-xs text-muted">Transcoding to MP4 and zipping</p>
+                <div className="relative h-1.5 w-full overflow-hidden rounded-full bg-surface-2">
+                  <div className="absolute inset-y-0 w-1/3 rounded-full bg-accent" style={{ animation: "kdlbar 1.1s ease-in-out infinite" }} />
+                  <style>{`@keyframes kdlbar{0%{left:-35%}100%{left:100%}}`}</style>
+                </div>
+              </>
+            ) : (
+              <>
+                <p className="text-sm text-ink">Downloading…</p>
+                <p className="font-mono text-xs text-muted">
+                  {(dl.received / 1048576).toFixed(1)}
+                  {dl.total ? ` / ${(dl.total / 1048576).toFixed(1)}` : ""} MB
+                </p>
+                <div className="h-1.5 w-full overflow-hidden rounded-full bg-surface-2">
+                  <div
+                    className="h-full rounded-full bg-accent transition-all duration-150"
+                    style={{ width: dl.total ? `${Math.min(100, Math.round((dl.received / dl.total) * 100))}%` : "100%" }}
+                  />
+                </div>
+              </>
+            )}
             <p className="font-mono text-[10px] text-faint">Keep this tab open until it finishes.</p>
           </div>
         </Modal>

@@ -22,7 +22,7 @@ const restrictiveCors = cors({
 
 // Public video + token-gated download endpoints are meant to be played and
 // embedded on any website, so they are CORS-open (like any video CDN).
-const openCors = cors();
+const openCors = cors({ exposedHeaders: ["Content-Disposition", "X-Total-Bytes"] });
 
 app.use(["/api/v1/public", "/api/v1/download"], openCors);
 app.use(["/api/v1/user", "/api/v1/upload", "/api/v1/video", "/api/v1/api-keys"], restrictiveCors);

@@ -147,8 +147,14 @@ export const bulkDownloadController = async (req: Request, res: Response) => {
     }
     if (files.length === 0) return res.status(404).json({ error: { message: "Nothing to download" } });
 
+    // Approx total (store-mode zip ≈ sum of file sizes) so the client can show a
+    // real progress %.
+    let total = 0;
+    for (const f of files) total += (await fsp.stat(f.path)).size;
+
     res.setHeader("Content-Type", "application/zip");
     res.setHeader("Content-Disposition", `attachment; filename="videos_${files.length}.zip"`);
+    res.setHeader("X-Total-Bytes", String(total));
 
     const archive = createArchiver("zip", { zlib: { level: 0 } });
     archive.on("error", (err: Error) => {

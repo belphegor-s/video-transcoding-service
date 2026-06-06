@@ -11,7 +11,7 @@ const csp = (frameAncestors) =>
     "img-src 'self' data: blob: https://*.cloudfront.net",
     "media-src 'self' blob: https://api.transcode.pixly.sh https://*.cloudfront.net",
     "font-src 'self' data:",
-    "connect-src 'self' https://api.transcode.pixly.sh https://*.s3.amazonaws.com https://*.s3.eu-central-1.amazonaws.com https://*.cloudfront.net https://cloudflareinsights.com https://static.cloudflareinsights.com",
+    "connect-src 'self' blob: https://api.transcode.pixly.sh https://*.s3.amazonaws.com https://*.s3.eu-central-1.amazonaws.com https://*.cloudfront.net https://cloudflareinsights.com https://static.cloudflareinsights.com",
     "worker-src 'self' blob:",
     "object-src 'none'",
     "base-uri 'self'",
