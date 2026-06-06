@@ -17,9 +17,6 @@ export function SiteFooter() {
             <Link href="/docs" className="transition-colors hover:text-ink">
               API docs
             </Link>
-            <Link href="/login" className="transition-colors hover:text-ink">
-              Sign in
-            </Link>
             <a
               href="https://github.com/belphegor-s/video-transcoding-service"
               target="_blank"

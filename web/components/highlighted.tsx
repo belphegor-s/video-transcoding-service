@@ -1,7 +1,14 @@
 "use client";
 
-import { Highlight, type PrismTheme } from "prism-react-renderer";
+import { Highlight, Prism, type PrismTheme } from "prism-react-renderer";
 import { cn } from "@/lib/utils";
+
+// prism-react-renderer bundles only a few languages. Register the extras we use
+// onto its Prism instance (assignment must run before the component imports).
+(globalThis as unknown as { Prism: typeof Prism }).Prism = Prism;
+require("prismjs/components/prism-bash");
+require("prismjs/components/prism-json");
+require("prismjs/components/prism-javascript");
 
 // Dark theme tuned to the app palette: lime tags/keywords, green names,
 // warm sand strings, faint punctuation/comments.
