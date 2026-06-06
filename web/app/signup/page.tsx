@@ -88,11 +88,13 @@ export default function SignupPage() {
         {serverError && <Alert>{serverError}</Alert>}
         <Field label="Name" autoComplete="name" placeholder="Ada Lovelace" error={errors.name?.message} {...register("name")} />
         <Field label="Email" type="email" autoComplete="email" placeholder="you@example.com" error={errors.email?.message} {...register("email")} />
-        <Field label="Password" type="password" autoComplete="new-password" placeholder="••••••••" error={errors.password?.message} {...register("password")} />
+        <div>
+          <Field label="Password" type="password" autoComplete="new-password" placeholder="••••••••" error={errors.password?.message} {...register("password")} />
+          <p className="mt-1.5 font-mono text-[10px] leading-relaxed text-faint">
+            8+ chars with an uppercase, lowercase, number &amp; symbol.
+          </p>
+        </div>
         <SubmitButton loading={isSubmitting}>Create account</SubmitButton>
-        <p className="text-center font-mono text-[10px] leading-relaxed text-faint">
-          8+ chars with an uppercase, lowercase, number &amp; symbol.
-        </p>
       </form>
     </AuthShell>
   );

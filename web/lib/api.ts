@@ -209,6 +209,8 @@ export const api = {
   downloadToken: (videoId: string) =>
     request<{ token: string }>("/video/download-token", { auth: true, query: { video_id: videoId } }),
 
+  bulkDownloadToken: () => request<{ token: string }>("/video/bulk-download-token", { auth: true }),
+
   // Public (embed) endpoints: no auth, gated on is_public server-side.
   publicMeta: (videoId: string) =>
     request<{ video_id: string; title: string; qualities: string[]; has_transcription: boolean; created_at: string }>(
@@ -250,4 +252,8 @@ export function downloadQualityUrl(videoId: string, quality: string, token: stri
 
 export function downloadAllUrl(videoId: string, token: string): string {
   return `${BASE}/download/all?video_id=${encodeURIComponent(videoId)}&token=${encodeURIComponent(token)}`;
+}
+
+export function bulkDownloadUrl(videoIds: string[], token: string): string {
+  return `${BASE}/download/bulk?ids=${encodeURIComponent(videoIds.join(","))}&token=${encodeURIComponent(token)}`;
 }

@@ -299,3 +299,12 @@ export const downloadTokenController = async (req: Request, res: Response) => {
     return res.status(500).json({ error: { message: "Internal server error" } });
   }
 };
+
+// Token authorizing a bulk download for the whole account (the download
+// endpoint re-checks ownership of each id).
+export const bulkDownloadTokenController = async (req: Request, res: Response) => {
+  // @ts-ignore
+  const userId = req.userId;
+  const token = jwt.sign({ userId, purpose: "bulk-download" }, env.JWT_ACCESS_TOKEN_SECRET as Secret, { expiresIn: "15m" });
+  return res.json({ data: { token } });
+};

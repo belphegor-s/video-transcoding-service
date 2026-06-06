@@ -1,5 +1,6 @@
 import { Router } from "express";
 import {
+  bulkDownloadTokenController,
   createFolderController,
   downloadTokenController,
   foldersController,
@@ -26,6 +27,7 @@ router.get("/stream", streamVideoController);
 router.get("/thumbnail", thumbnailController);
 router.get("/transcription", transcriptionController);
 router.get("/download-token", downloadTokenController);
+router.get("/bulk-download-token", bulkDownloadTokenController);
 router.patch("/visibility", setVisibilityController);
 router.patch("/rename", renameVideoController);
 router.patch("/folder", setFolderController);

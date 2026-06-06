@@ -41,13 +41,11 @@ export async function streamHls(
       if (line.startsWith("#EXT-X-MEDIA") && line.includes('URI="')) {
         return line.replace(/URI="([^"]+)"/, (_match, uriPath) => {
           const absPath = url.resolve(playlistBasePath, uriPath);
-          // Subtitle URIs may point at a .vtt directly (sign it) or a child
-          // playlist that must be proxied. Proxy .m3u8, sign anything else.
-          if (absPath.toLowerCase().endsWith(".m3u8")) {
-            const proxyUrl = `${protocol}://${host}${opts.proxyPath}?video_id=${video.video_id}&path=${encodeURIComponent(absPath)}`;
-            return `URI="${proxyUrl}"`;
-          }
-          return `URI="${getSignedCloudFrontUrl(absPath)}"`;
+          // Always proxy subtitle URIs (.vtt or child .m3u8) through us so the
+          // player never makes a cross-origin request to the CDN (CloudFront
+          // does not return CORS headers on preflight, which breaks captions).
+          const proxyUrl = `${protocol}://${host}${opts.proxyPath}?video_id=${video.video_id}&path=${encodeURIComponent(absPath)}`;
+          return `URI="${proxyUrl}"`;
         });
       }
 
@@ -89,7 +87,12 @@ export async function streamHls(
   }
 
   if (ext === ".vtt") {
-    return res.redirect(getSignedCloudFrontUrl(requestedPath));
+    // Proxy caption bytes too (same CORS reasoning as segments).
+    const upstream = await fetch(getSignedCloudFrontUrl(requestedPath));
+    if (!upstream.ok) return res.status(502).json({ error: "Failed to fetch captions" });
+    res.setHeader("Content-Type", "text/vtt; charset=utf-8");
+    res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+    return res.end(Buffer.from(await upstream.arrayBuffer()));
   }
 
   return res.status(400).json({ error: "Unsupported resource type" });

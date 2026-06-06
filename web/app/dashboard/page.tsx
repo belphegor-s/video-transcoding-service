@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Check,
+  Download,
   FolderInput,
   FolderPlus,
   Globe,
@@ -30,7 +31,7 @@ import { NewFolderDialog } from "@/components/new-folder-dialog";
 import { Modal } from "@/components/modal";
 import { isInFlight } from "@/components/status-badge";
 import { useAuth } from "@/lib/use-auth";
-import { api } from "@/lib/api";
+import { api, bulkDownloadUrl } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { LIFETIME_VIDEO_LIMIT, MAX_FILE_BYTES, type Paginated, type Video } from "@/lib/types";
 
@@ -61,6 +62,7 @@ export default function DashboardPage() {
   const [renameTarget, setRenameTarget] = useState<Video | null>(null);
   const [renameDraft, setRenameDraft] = useState("");
   const [renaming, setRenaming] = useState(false);
+  const [dl, setDl] = useState<{ received: number; count: number } | null>(null);
 
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -158,6 +160,44 @@ export default function DashboardPage() {
       toast.error(e?.message ?? "Rename failed");
     } finally {
       setRenaming(false);
+    }
+  };
+
+  const bulkDownload = async (ids: string[]) => {
+    if (ids.length === 0) return;
+    setDl({ received: 0, count: ids.length });
+    try {
+      const { token } = await api.bulkDownloadToken();
+      const res = await fetch(bulkDownloadUrl(ids, token));
+      if (!res.ok || !res.body) {
+        const j = await res.json().catch(() => ({}));
+        throw new Error(j?.error?.message || "Download failed");
+      }
+      const reader = res.body.getReader();
+      const chunks: Uint8Array[] = [];
+      let received = 0;
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        chunks.push(value);
+        received += value.length;
+        setDl({ received, count: ids.length });
+      }
+      const blob = new Blob(chunks as BlobPart[], { type: "application/zip" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `videos_${ids.length}.zip`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      toast.success("Download ready");
+      clearSelection();
+    } catch (e: any) {
+      toast.error(e?.message ?? "Download failed");
+    } finally {
+      setDl(null);
     }
   };
 
@@ -319,6 +359,14 @@ export default function DashboardPage() {
             <button onClick={selectAll} className="rounded-full px-3 py-1.5 font-mono text-xs text-muted transition-colors hover:text-ink">
               Select page
             </button>
+            <button
+              onClick={() => bulkDownload([...selected])}
+              disabled={!!dl}
+              className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 font-mono text-xs text-muted transition-colors hover:border-faint hover:text-ink disabled:opacity-50"
+            >
+              <Download className="h-3.5 w-3.5" />
+              Download
+            </button>
             <button onClick={() => setMoveTarget([...selected])} className="btn-primary px-4 py-1.5 text-xs">
               <FolderInput className="h-3.5 w-3.5" />
               Move to folder
@@ -387,6 +435,22 @@ export default function DashboardPage() {
           onUploaded={() => load(true)}
           maxBytes={unlimited ? 50 * 1024 * 1024 * 1024 : MAX_FILE_BYTES}
         />
+      )}
+
+      {dl && (
+        <Modal open onClose={() => {}} className="max-w-xs">
+          <div className="flex flex-col items-center gap-3 py-2 text-center">
+            <Loader2 className="h-7 w-7 animate-spin text-accent" />
+            <p className="text-sm text-ink">
+              Zipping {dl.count} {dl.count === 1 ? "video" : "videos"}…
+            </p>
+            <p className="font-mono text-xs text-muted">{(dl.received / 1048576).toFixed(1)} MB downloaded</p>
+            <div className="h-1 w-full overflow-hidden rounded-full bg-surface-2">
+              <div className="h-full w-1/3 animate-pulse rounded-full bg-accent" />
+            </div>
+            <p className="font-mono text-[10px] text-faint">Keep this tab open until it finishes.</p>
+          </div>
+        </Modal>
       )}
     </div>
   );

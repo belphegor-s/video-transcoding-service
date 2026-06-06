@@ -7,6 +7,7 @@ const createArchiver = require("archiver") as (
   format: string,
   options?: import("archiver").ArchiverOptions,
 ) => import("archiver").Archiver;
+import { Op } from "sequelize";
 import Video from "../models/Video";
 import { downloadBaseName, parseQualities, remuxRenditionToMp4 } from "../utils/media";
 import { env } from "../config/env";
@@ -102,6 +103,67 @@ export const downloadAllController = async (req: Request, res: Response) => {
   } catch (e: any) {
     await cleanup();
     console.error("downloadAllController ->", e);
+    if (!res.headersSent) res.status(500).json({ error: { message: "Failed to prepare download" } });
+  }
+};
+
+// Bulk download: one MP4 (highest quality) per selected video, zipped + streamed.
+export const bulkDownloadController = async (req: Request, res: Response) => {
+  const token = req.query.token as string;
+  const idsParam = (req.query.ids as string) || "";
+  let claims: { userId: string; purpose: string };
+  try {
+    claims = jwt.verify(token, env.JWT_ACCESS_TOKEN_SECRET as Secret) as { userId: string; purpose: string };
+  } catch {
+    return res.status(403).json({ error: { message: "Invalid or expired download link" } });
+  }
+  if (claims.purpose !== "bulk-download") return res.status(403).json({ error: { message: "Invalid download link" } });
+
+  const ids = idsParam.split(",").map((s) => s.trim()).filter(Boolean).slice(0, 100);
+  if (ids.length === 0) return res.status(400).json({ error: { message: "No videos selected" } });
+
+  const videos = await Video.findAll({
+    where: { user_id: claims.userId, video_id: { [Op.in]: ids }, status: "transcoded" },
+  });
+  if (videos.length === 0) return res.status(404).json({ error: { message: "Nothing to download" } });
+
+  const dirs: string[] = [];
+  const cleanup = () => Promise.all(dirs.map((d) => fsp.rm(d, { recursive: true, force: true }).catch(() => {})));
+
+  try {
+    // Remux each video's top rendition to a temp mp4 (bounded by the 100 cap).
+    const used = new Map<string, number>();
+    const files: { path: string; name: string }[] = [];
+    for (const v of videos) {
+      const top = parseQualities(v)[0];
+      if (!top) continue;
+      const out = await remuxRenditionToMp4(top.key);
+      dirs.push(out.dir);
+      let name = `${downloadBaseName(v)}_${top.label}.mp4`;
+      const n = used.get(name) ?? 0;
+      used.set(name, n + 1);
+      if (n > 0) name = name.replace(/\.mp4$/, ` (${n + 1}).mp4`);
+      files.push({ path: out.file, name });
+    }
+    if (files.length === 0) return res.status(404).json({ error: { message: "Nothing to download" } });
+
+    res.setHeader("Content-Type", "application/zip");
+    res.setHeader("Content-Disposition", `attachment; filename="videos_${files.length}.zip"`);
+
+    const archive = createArchiver("zip", { zlib: { level: 0 } });
+    archive.on("error", (err: Error) => {
+      console.error("bulk archive error ->", err);
+      if (!res.headersSent) res.status(500).end();
+    });
+    res.on("close", cleanup);
+    archive.on("end", cleanup);
+
+    archive.pipe(res);
+    for (const f of files) archive.file(f.path, { name: f.name });
+    await archive.finalize();
+  } catch (e: any) {
+    await cleanup();
+    console.error("bulkDownloadController ->", e);
     if (!res.headersSent) res.status(500).json({ error: { message: "Failed to prepare download" } });
   }
 };
