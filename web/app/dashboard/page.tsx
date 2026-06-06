@@ -11,7 +11,9 @@ import {
   FolderPlus,
   Globe,
   Home,
+  LayoutGrid,
   Link2,
+  List,
   Loader2,
   Lock,
   Pencil,
@@ -56,6 +58,16 @@ export default function DashboardPage() {
   const [folder, setFolder] = useState("");
   const [folders, setFolders] = useState<string[]>([]);
   const [sort, setSort] = useState("newest");
+  const [view, setView] = useState<"grid" | "list">("grid");
+
+  useEffect(() => {
+    const v = localStorage.getItem("vt_view");
+    if (v === "grid" || v === "list") setView(v);
+  }, []);
+  const changeView = (v: "grid" | "list") => {
+    setView(v);
+    localStorage.setItem("vt_view", v);
+  };
   const [showUpload, setShowUpload] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -310,13 +322,31 @@ export default function DashboardPage() {
               ]}
             />
           </div>
-          <button
-            onClick={() => setNewFolderOpen(true)}
-            className="inline-flex shrink-0 items-center gap-1.5 self-start rounded-full border border-dashed border-border px-3 py-1.5 font-mono text-[11px] text-muted transition-colors hover:border-accent/50 hover:text-accent"
-          >
-            <FolderPlus className="h-3.5 w-3.5" />
-            New folder
-          </button>
+          <div className="flex shrink-0 items-center gap-2 self-start">
+            <div className="flex items-center rounded-lg border border-border p-0.5">
+              <button
+                onClick={() => changeView("grid")}
+                className={cn("rounded-md p-1.5 transition-colors", view === "grid" ? "bg-surface-2 text-ink" : "text-faint hover:text-ink")}
+                aria-label="Grid view"
+              >
+                <LayoutGrid className="h-4 w-4" />
+              </button>
+              <button
+                onClick={() => changeView("list")}
+                className={cn("rounded-md p-1.5 transition-colors", view === "list" ? "bg-surface-2 text-ink" : "text-faint hover:text-ink")}
+                aria-label="List view"
+              >
+                <List className="h-4 w-4" />
+              </button>
+            </div>
+            <button
+              onClick={() => setNewFolderOpen(true)}
+              className="inline-flex items-center gap-1.5 rounded-full border border-dashed border-border px-3 py-1.5 font-mono text-[11px] text-muted transition-colors hover:border-accent/50 hover:text-accent"
+            >
+              <FolderPlus className="h-3.5 w-3.5" />
+              New folder
+            </button>
+          </div>
         </div>
 
         {/* breadcrumbs (folder navigation) */}
@@ -349,7 +379,7 @@ export default function DashboardPage() {
 
         {/* subfolders at this level */}
         {browsing && subfolders.length > 0 && (
-          <div className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <div className={cn("mb-6", view === "grid" ? "grid gap-3 sm:grid-cols-2 lg:grid-cols-3" : "flex flex-col gap-2")}>
             {subfolders.map((name) => {
               const childPath = folder ? `${folder}/${name}` : name;
               return (
@@ -412,11 +442,12 @@ export default function DashboardPage() {
           )
         ) : (
           <>
-            <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            <div className={cn(view === "grid" ? "grid gap-5 sm:grid-cols-2 lg:grid-cols-3" : "flex flex-col gap-2")}>
               {videos.map((v) => (
                 <VideoCard
                   key={v.video_id}
                   video={v}
+                  view={view}
                   selected={selected.has(v.video_id)}
                   selectionActive={selectionActive}
                   onOpen={openVideo}

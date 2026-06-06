@@ -16,6 +16,7 @@ export function VideoCard({
   video,
   selected,
   selectionActive,
+  view = "grid",
   onOpen,
   onToggleSelect,
   onContextMenu,
@@ -23,6 +24,7 @@ export function VideoCard({
   video: Video;
   selected: boolean;
   selectionActive: boolean;
+  view?: "grid" | "list";
   onOpen: (v: Video) => void;
   onToggleSelect: (v: Video) => void;
   onContextMenu: (e: React.MouseEvent, v: Video) => void;
@@ -35,6 +37,68 @@ export function VideoCard({
     else if (ready) onOpen(video);
   };
 
+  const checkbox = (
+    <button
+      onClick={(e) => {
+        e.stopPropagation();
+        onToggleSelect(video);
+      }}
+      className={cn(
+        "flex h-6 w-6 items-center justify-center rounded-md border transition-all",
+        selected
+          ? "border-accent bg-accent text-accent-ink"
+          : "border-border bg-bg/70 text-transparent opacity-0 backdrop-blur group-hover:opacity-100",
+        selectionActive && "opacity-100",
+      )}
+      aria-label={selected ? "Deselect" : "Select"}
+    >
+      <Check className="h-4 w-4" />
+    </button>
+  );
+
+  const meta = (
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-[11px] text-muted">
+      {ready && renditions > 0 && (
+        <span className="inline-flex items-center gap-1.5">
+          <Layers className="h-3.5 w-3.5 text-accent" />
+          {renditions}
+        </span>
+      )}
+      {video.is_public && (
+        <span className="inline-flex items-center gap-1.5 text-accent">
+          <Globe className="h-3.5 w-3.5" />
+          Public
+        </span>
+      )}
+    </div>
+  );
+
+  if (view === "list") {
+    return (
+      <div
+        onClick={handleClick}
+        onContextMenu={(e) => onContextMenu(e, video)}
+        className={cn(
+          "group flex cursor-pointer select-none items-center gap-4 rounded-xl border bg-surface p-3 transition-colors",
+          selected ? "border-accent ring-1 ring-accent" : "border-border hover:border-faint",
+        )}
+      >
+        {checkbox}
+        <div className="w-24 shrink-0 sm:w-32">
+          <VideoThumb videoId={video.video_id} ready={ready} />
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm text-ink" title={displayName(video)}>
+            {displayName(video)}
+          </p>
+          <p className="mt-0.5 font-mono text-[11px] text-faint">{timeAgo(video.created_at)}</p>
+        </div>
+        <div className="hidden sm:block">{meta}</div>
+        <StatusBadge status={video.status} />
+      </div>
+    );
+  }
+
   return (
     <div
       onClick={handleClick}
@@ -44,23 +108,7 @@ export function VideoCard({
         selected ? "border-accent ring-1 ring-accent" : "border-border hover:border-faint",
       )}
     >
-      {/* selection checkbox */}
-      <button
-        onClick={(e) => {
-          e.stopPropagation();
-          onToggleSelect(video);
-        }}
-        className={cn(
-          "absolute left-3 top-3 z-10 flex h-6 w-6 items-center justify-center rounded-md border transition-all",
-          selected
-            ? "border-accent bg-accent text-accent-ink"
-            : "border-border bg-bg/70 text-transparent opacity-0 backdrop-blur group-hover:opacity-100",
-          selectionActive && "opacity-100",
-        )}
-        aria-label={selected ? "Deselect" : "Select"}
-      >
-        <Check className="h-4 w-4" />
-      </button>
+      <div className="absolute left-3 top-3 z-10">{checkbox}</div>
 
       <VideoThumb videoId={video.video_id} ready={ready} showPlay={ready && !selectionActive} />
 
