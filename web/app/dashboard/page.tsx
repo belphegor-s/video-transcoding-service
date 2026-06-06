@@ -115,6 +115,10 @@ export default function DashboardPage() {
     return () => clearTimeout(t);
   }, [q]);
   useEffect(() => setOffset(0), [debouncedQ, folder, sort]);
+  // instant feedback: show the skeleton immediately when navigating/filtering
+  useEffect(() => {
+    setData(null);
+  }, [folder, debouncedQ, sort, offset]);
   const refreshFolders = useCallback(() => api.folders().then(setFolders).catch(() => {}), []);
   useEffect(() => {
     if (!authLoading && user) refreshFolders();
@@ -390,67 +394,81 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {videos === null ? (
-          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-            {Array.from({ length: 3 }).map((_, i) => (
-              <div key={i} className="aspect-[4/5] animate-pulse rounded-2xl border border-border bg-surface" />
-            ))}
-          </div>
-        ) : (browsing && subfolders.length > 0) || videos.length > 0 ? (
-          <>
-            {/* folders + videos share one grid so they align */}
-            <div className={cn(view === "grid" ? "grid gap-5 sm:grid-cols-2 lg:grid-cols-3" : "flex flex-col gap-2")}>
-              {browsing &&
-                subfolders.map((name) => (
-                  <FolderCard key={`f:${name}`} name={name} path={folder ? `${folder}/${name}` : name} view={view} onOpen={setFolder} />
-                ))}
-              {videos.map((v) => (
-                <VideoCard
-                  key={v.video_id}
-                  video={v}
-                  view={view}
-                  selected={selected.has(v.video_id)}
-                  selectionActive={selectionActive}
-                  onOpen={openVideo}
-                  onToggleSelect={toggleSelect}
-                  onContextMenu={(e, vid) => {
-                    e.preventDefault();
-                    setMenu({ x: e.clientX, y: e.clientY, video: vid });
-                  }}
-                />
-              ))}
-            </div>
-            {data && <Pagination total={data.total} limit={data.limit} offset={data.offset} onChange={setOffset} noun="videos" />}
-          </>
-        ) : (
-          <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-border py-24 text-center">
-            <div className="mb-5 inline-flex h-14 w-14 items-center justify-center rounded-2xl border border-border bg-surface">
-              <VideoIcon className="h-6 w-6 text-accent" strokeWidth={1.5} />
-            </div>
-            {debouncedQ ? (
-              <>
-                <h2 className="font-serif text-2xl text-ink">No matches</h2>
-                <p className="mt-2 max-w-xs text-sm text-muted">No videos match your search.</p>
-              </>
-            ) : folder ? (
-              <>
-                <h2 className="font-serif text-2xl text-ink">Empty folder</h2>
-                <p className="mt-2 max-w-xs text-sm text-muted">No videos here yet. Move some in, or upload.</p>
-              </>
-            ) : (
-              <>
-                <h2 className="font-serif text-2xl text-ink">No videos yet</h2>
-                <p className="mt-2 max-w-xs text-sm text-muted">
-                  Upload your first source file and watch it become an adaptive stream.
-                </p>
-                <button onClick={openUpload} className="btn-primary mt-7 px-6 py-3">
-                  <Plus className="h-4 w-4" />
-                  Upload a video
-                </button>
-              </>
-            )}
-          </div>
-        )}
+        {(() => {
+          const loading = data === null;
+          const hasFolders = browsing && subfolders.length > 0;
+          const hasVideos = !loading && (videos?.length ?? 0) > 0;
+
+          if (!loading && !hasFolders && !hasVideos) {
+            return (
+              <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-border py-24 text-center">
+                <div className="mb-5 inline-flex h-14 w-14 items-center justify-center rounded-2xl border border-border bg-surface">
+                  <VideoIcon className="h-6 w-6 text-accent" strokeWidth={1.5} />
+                </div>
+                {debouncedQ ? (
+                  <>
+                    <h2 className="font-serif text-2xl text-ink">No matches</h2>
+                    <p className="mt-2 max-w-xs text-sm text-muted">No videos match your search.</p>
+                  </>
+                ) : folder ? (
+                  <>
+                    <h2 className="font-serif text-2xl text-ink">Empty folder</h2>
+                    <p className="mt-2 max-w-xs text-sm text-muted">No videos here yet. Move some in, or upload.</p>
+                  </>
+                ) : (
+                  <>
+                    <h2 className="font-serif text-2xl text-ink">No videos yet</h2>
+                    <p className="mt-2 max-w-xs text-sm text-muted">
+                      Upload your first source file and watch it become an adaptive stream.
+                    </p>
+                    <button onClick={openUpload} className="btn-primary mt-7 px-6 py-3">
+                      <Plus className="h-4 w-4" />
+                      Upload a video
+                    </button>
+                  </>
+                )}
+              </div>
+            );
+          }
+
+          return (
+            <>
+              {/* folders (instant) + videos (skeleton while loading) share one grid */}
+              <div className={cn(view === "grid" ? "grid gap-5 sm:grid-cols-2 lg:grid-cols-3" : "flex flex-col gap-2")}>
+                {hasFolders &&
+                  subfolders.map((name) => (
+                    <FolderCard key={`f:${name}`} name={name} path={folder ? `${folder}/${name}` : name} view={view} onOpen={setFolder} />
+                  ))}
+                {loading
+                  ? Array.from({ length: 6 }).map((_, i) => (
+                      <div
+                        key={`s${i}`}
+                        className={cn(
+                          "animate-pulse border border-border bg-surface",
+                          view === "grid" ? "aspect-[4/5] rounded-2xl" : "h-20 rounded-xl",
+                        )}
+                      />
+                    ))
+                  : videos!.map((v) => (
+                      <VideoCard
+                        key={v.video_id}
+                        video={v}
+                        view={view}
+                        selected={selected.has(v.video_id)}
+                        selectionActive={selectionActive}
+                        onOpen={openVideo}
+                        onToggleSelect={toggleSelect}
+                        onContextMenu={(e, vid) => {
+                          e.preventDefault();
+                          setMenu({ x: e.clientX, y: e.clientY, video: vid });
+                        }}
+                      />
+                    ))}
+              </div>
+              {data && <Pagination total={data.total} limit={data.limit} offset={data.offset} onChange={setOffset} noun="videos" />}
+            </>
+          );
+        })()}
       </main>
 
       {/* selection toolbar */}

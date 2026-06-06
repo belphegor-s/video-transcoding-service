@@ -91,7 +91,7 @@ export function VideoPlayer({
       poster={poster}
       onProviderChange={onProviderChange}
     >
-      <MediaProvider>{poster && <Poster className="vds-poster absolute inset-0 h-full w-full object-cover" alt={title ?? ""} />}</MediaProvider>
+      <MediaProvider>{poster && <Poster className="vds-poster" alt={title ?? ""} />}</MediaProvider>
       {tracks.map((t) => (
         <Track key={t.lang} src={t.src} kind="subtitles" label={t.label} language={t.lang} default={t.default} type="vtt" />
       ))}
