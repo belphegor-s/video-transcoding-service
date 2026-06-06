@@ -27,6 +27,10 @@ export function VideoPlayer({
       // (blocked by our CSP, and avoids a third-party runtime dependency).
       provider.library = () => import("hls.js");
       provider.config = {
+        // Let hls.js fetch + render captions itself (via its CORS-open, auth-aware
+        // loader) instead of a native <track src> which can't send the auth header
+        // and is blocked cross-origin ("Unsafe attempt to load URL").
+        renderTextTracksNatively: false,
         xhrSetup(xhr) {
           if (authed) {
             const t = tokens.access();
