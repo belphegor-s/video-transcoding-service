@@ -6,6 +6,7 @@ import { v4 as uuid } from "uuid";
 import jwt, { Secret } from "jsonwebtoken";
 import { passwordResetEmail, verifyEmailTemplate } from "../email_templates/email";
 import { sendEmail } from "../lib/sendEmail";
+import { isUnlimited } from "../utils/account";
 
 const ACCESS_TOKEN_EXPIRES_IN = 60 * 60; // 1 hour
 const REFRESH_TOKEN_EXPIRES_IN = 7 * 24 * 60 * 60; // 7 days
@@ -131,6 +132,7 @@ export const loginUserController = async (req: Request, res: Response) => {
         user: {
           userId: existingUser.user_id,
           email: existingUser.email,
+          unlimited: isUnlimited(existingUser.email),
         },
         accessToken,
         refreshToken,
@@ -188,7 +190,7 @@ export const tokenRefreshController = async (req: Request, res: Response) => {
 
 export const meController = async (req: Request, res: Response) => {
   // @ts-ignore
-  res.json({ data: { userId: req?.userId, email: req?.email, name: req?.name } });
+  res.json({ data: { userId: req?.userId, email: req?.email, name: req?.name, unlimited: isUnlimited(req?.email) } });
 };
 
 const resetRequestSchema = z.object({

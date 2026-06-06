@@ -1,4 +1,4 @@
-import type { AuthUser, PresignedPost, Transcription, Video } from "./types";
+import type { ApiKey, AuthUser, CreatedApiKey, PresignedPost, Transcription, Video } from "./types";
 
 const BASE = (process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:9191/api/v1").replace(/\/$/, "");
 
@@ -184,6 +184,14 @@ export const api = {
 
   publicThumbnail: (videoId: string) =>
     request<{ url: string }>("/public/video/thumbnail", { query: { video_id: videoId } }),
+
+  // API keys
+  listApiKeys: () => request<ApiKey[]>("/api-keys", { auth: true }),
+
+  createApiKey: (name: string, expiresAt?: string | null) =>
+    request<CreatedApiKey>("/api-keys", { method: "POST", auth: true, body: { name, expires_at: expiresAt ?? null } }),
+
+  revokeApiKey: (id: string) => request<ApiKey>(`/api-keys/${id}`, { method: "DELETE", auth: true }),
 };
 
 /** Authed master-playlist URL for the player (Bearer attached via xhrSetup). */

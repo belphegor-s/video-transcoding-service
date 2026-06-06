@@ -10,7 +10,7 @@ import { LimitsBanner } from "@/components/limits-banner";
 import { isInFlight } from "@/components/status-badge";
 import { useAuth } from "@/lib/use-auth";
 import { api } from "@/lib/api";
-import { LIFETIME_VIDEO_LIMIT, type Video } from "@/lib/types";
+import { LIFETIME_VIDEO_LIMIT, MAX_FILE_BYTES, type Video } from "@/lib/types";
 
 const COUNTED: Video["status"][] = ["uploaded", "transcoding", "transcoded"];
 
@@ -52,7 +52,8 @@ export default function DashboardPage() {
   }, [videos, load]);
 
   const usedCount = videos?.filter((v) => COUNTED.includes(v.status)).length ?? 0;
-  const atLimit = usedCount >= LIFETIME_VIDEO_LIMIT;
+  const unlimited = !!user?.unlimited;
+  const atLimit = !unlimited && usedCount >= LIFETIME_VIDEO_LIMIT;
 
   const openUpload = () => {
     if (atLimit) {
@@ -97,7 +98,7 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {videos !== null && videos.length > 0 && (
+        {videos !== null && videos.length > 0 && !unlimited && (
           <div className="mb-8">
             <LimitsBanner used={usedCount} limit={LIFETIME_VIDEO_LIMIT} />
           </div>
@@ -132,7 +133,13 @@ export default function DashboardPage() {
         )}
       </main>
 
-      {showUpload && <UploadDialog onClose={() => setShowUpload(false)} onUploaded={() => load(true)} />}
+      {showUpload && (
+        <UploadDialog
+          onClose={() => setShowUpload(false)}
+          onUploaded={() => load(true)}
+          maxBytes={unlimited ? 50 * 1024 * 1024 * 1024 : MAX_FILE_BYTES}
+        />
+      )}
     </div>
   );
 }

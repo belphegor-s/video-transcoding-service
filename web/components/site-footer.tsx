@@ -14,6 +14,9 @@ export function SiteFooter() {
             <a href="/#features" className="transition-colors hover:text-ink">
               Features
             </a>
+            <Link href="/docs" className="transition-colors hover:text-ink">
+              API docs
+            </Link>
             <Link href="/login" className="transition-colors hover:text-ink">
               Sign in
             </Link>

@@ -4,6 +4,7 @@ import uploadRoutes from "./upload";
 import videoRoutes from "./video";
 import publicVideoRoutes from "./public";
 import downloadRoutes from "./download";
+import apiKeyRoutes from "./apiKeys";
 import isAuth from "../middlewares/isAuth";
 const router = Router();
 
@@ -14,5 +15,6 @@ router.use("/download", downloadRoutes);
 
 router.use("/upload", isAuth, uploadRoutes);
 router.use("/video", isAuth, videoRoutes);
+router.use("/api-keys", isAuth, apiKeyRoutes);
 
 export default router;

@@ -36,6 +36,9 @@ export function SiteHeader() {
           <a href="#pipeline" className="transition-colors hover:text-ink">
             Pipeline
           </a>
+          <Link href="/docs" className="transition-colors hover:text-ink">
+            API docs
+          </Link>
         </nav>
         <div className="flex items-center gap-2">
           <Link href="/login" className="hidden px-4 py-2 font-mono text-xs text-muted transition-colors hover:text-ink sm:inline-flex">

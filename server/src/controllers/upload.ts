@@ -5,6 +5,7 @@ import { Op } from "sequelize";
 import { v4 as uuid } from "uuid";
 import { getPresignedUrl } from "../utils/getPresignedUrl";
 import Video from "../models/Video";
+import { FREE_MAX_FILE_BYTES, UNLIMITED_MAX_FILE_BYTES, isUnlimited } from "../utils/account";
 
 // Lifetime cap: a user may keep at most this many real (uploaded+) videos.
 export const LIFETIME_VIDEO_LIMIT = 5;
@@ -30,19 +31,24 @@ export const uploadVideosController = async (req: Request, res: Response) => {
 
     // @ts-ignore
     const userId = req.userId;
+    // @ts-ignore
+    const unlimited = isUnlimited(req.email);
 
-    const count = await getLifetimeCount(userId);
-    if (count >= LIFETIME_VIDEO_LIMIT) {
-      return res.status(403).json({
-        error: {
-          code: "LIMIT_REACHED",
-          message: `You've reached the free limit of ${LIFETIME_VIDEO_LIMIT} videos. Contact hello@ayushsharma.me for higher limits or on-prem deployment.`,
-        },
-      });
+    if (!unlimited) {
+      const count = await getLifetimeCount(userId);
+      if (count >= LIFETIME_VIDEO_LIMIT) {
+        return res.status(403).json({
+          error: {
+            code: "LIMIT_REACHED",
+            message: `You've reached the free limit of ${LIFETIME_VIDEO_LIMIT} videos. Contact hello@ayushsharma.me for higher limits or on-prem deployment.`,
+          },
+        });
+      }
     }
 
     const id = `uploads/${userId}/video-${uuid()}`;
-    const url = await getPresignedUrl(id, fileType, userId);
+    const maxBytes = unlimited ? UNLIMITED_MAX_FILE_BYTES : FREE_MAX_FILE_BYTES;
+    const url = await getPresignedUrl(id, fileType, userId, maxBytes);
 
     await Video.create({
       video_id: uuid(),

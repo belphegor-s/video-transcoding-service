@@ -1,12 +1,12 @@
 import { createPresignedPost, type PresignedPostOptions } from "@aws-sdk/s3-presigned-post";
 import s3 from "../lib/s3";
 
-export const getPresignedUrl = async (key: string, fileType: string, userId: string) => {
+export const getPresignedUrl = async (key: string, fileType: string, userId: string, maxBytes: number = 1024 * 1024 * 1024) => {
   const params: PresignedPostOptions = {
     Bucket: process.env.S3_BUCKET_NAME!,
     Key: key,
     Conditions: [
-      ["content-length-range", 0, 1024 * 1024 * 1024], // Max 1GB
+      ["content-length-range", 0, maxBytes],
       { "Content-Type": fileType },
       { "x-amz-meta-userId": userId },
     ],

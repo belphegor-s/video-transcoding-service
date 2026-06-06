@@ -28,7 +28,16 @@ function uploadToS3(url: string, fields: Record<string, string>, file: File, onP
   });
 }
 
-export function UploadDialog({ onClose, onUploaded }: { onClose: () => void; onUploaded: () => void }) {
+export function UploadDialog({
+  onClose,
+  onUploaded,
+  maxBytes = MAX_FILE_BYTES,
+}: {
+  onClose: () => void;
+  onUploaded: () => void;
+  maxBytes?: number;
+}) {
+  const maxGb = Math.round(maxBytes / (1024 * 1024 * 1024));
   const inputRef = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
   const [phase, setPhase] = useState<Phase>("idle");
@@ -43,8 +52,8 @@ export function UploadDialog({ onClose, onUploaded }: { onClose: () => void; onU
       setError("Unsupported format. Use MP4, MOV, WebM, MPEG, AVI or FLV.");
       return;
     }
-    if (f.size > MAX_FILE_BYTES) {
-      setError("File exceeds the 1 GB limit.");
+    if (f.size > maxBytes) {
+      setError(`File exceeds the ${maxGb} GB limit.`);
       return;
     }
     setFile(f);
@@ -113,7 +122,7 @@ export function UploadDialog({ onClose, onUploaded }: { onClose: () => void; onU
             <UploadCloud className="h-8 w-8 text-accent" strokeWidth={1.5} />
             <div>
               <p className="text-sm text-ink">Drop a file or click to browse</p>
-              <p className="mt-1 font-mono text-[11px] text-faint">MP4 · MOV · WebM · MPEG · AVI · FLV, up to 1 GB</p>
+              <p className="mt-1 font-mono text-[11px] text-faint">MP4 · MOV · WebM · MPEG · AVI · FLV, up to {maxGb} GB</p>
             </div>
           </button>
         ) : (

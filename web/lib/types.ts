@@ -58,6 +58,24 @@ export interface AuthUser {
   userId: string;
   email: string;
   name?: string;
+  unlimited?: boolean;
+}
+
+export type ApiKeyStatus = "active" | "expired" | "revoked";
+
+export interface ApiKey {
+  api_key_id: string;
+  name: string;
+  key_prefix: string;
+  created_at: string;
+  last_used_at: string | null;
+  expires_at: string | null;
+  revoked: boolean;
+  status: ApiKeyStatus;
+}
+
+export interface CreatedApiKey extends ApiKey {
+  key: string; // full secret, returned once
 }
 
 export interface PresignedPost {
