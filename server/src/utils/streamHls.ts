@@ -35,27 +35,24 @@ export async function streamHls(
     const playlistBasePath = requestedPath.substring(0, requestedPath.lastIndexOf("/") + 1);
     const lines = playlistText.split("\n");
 
-    const rewrittenLines = lines.map((line) => {
-      line = line.trim();
+    const rewrittenLines: string[] = [];
+    for (const raw of lines) {
+      const line = raw.trim();
 
-      if (line.startsWith("#EXT-X-MEDIA") && line.includes('URI="')) {
-        return line.replace(/URI="([^"]+)"/, (_match, uriPath) => {
-          const absPath = url.resolve(playlistBasePath, uriPath);
-          // Always proxy subtitle URIs (.vtt or child .m3u8) through us so the
-          // player never makes a cross-origin request to the CDN (CloudFront
-          // does not return CORS headers on preflight, which breaks captions).
-          const proxyUrl = `${protocol}://${host}${opts.proxyPath}?video_id=${video.video_id}&path=${encodeURIComponent(absPath)}`;
-          return `URI="${proxyUrl}"`;
-        });
-      }
+      // Drop subtitle declarations from the manifest: the player (Vidstack/hls.js)
+      // tries to load the .vtt as a cross-origin / auth-less native text track,
+      // which is blocked ("Unsafe attempt to load URL") and stalls playback.
+      // Captions remain available via the /transcription endpoint + panel.
+      if (line.startsWith("#EXT-X-MEDIA") && line.includes("TYPE=SUBTITLES")) continue;
 
       if (line && !line.startsWith("#")) {
         const absPath = url.resolve(playlistBasePath, line);
-        return `${protocol}://${host}${opts.proxyPath}?video_id=${video.video_id}&path=${encodeURIComponent(absPath)}`;
+        rewrittenLines.push(`${protocol}://${host}${opts.proxyPath}?video_id=${video.video_id}&path=${encodeURIComponent(absPath)}`);
+        continue;
       }
 
-      return line;
-    });
+      rewrittenLines.push(raw.replace(/\r$/, ""));
+    }
 
     res.setHeader("Content-Type", "application/vnd.apple.mpegurl");
     return res.send(rewrittenLines.join("\n"));
