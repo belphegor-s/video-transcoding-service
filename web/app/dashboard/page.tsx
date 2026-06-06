@@ -445,8 +445,9 @@ export default function DashboardPage() {
               Zipping {dl.count} {dl.count === 1 ? "video" : "videos"}…
             </p>
             <p className="font-mono text-xs text-muted">{(dl.received / 1048576).toFixed(1)} MB downloaded</p>
-            <div className="h-1 w-full overflow-hidden rounded-full bg-surface-2">
-              <div className="h-full w-1/3 animate-pulse rounded-full bg-accent" />
+            <div className="relative h-1 w-full overflow-hidden rounded-full bg-surface-2">
+              <div className="absolute inset-y-0 w-1/3 rounded-full bg-accent" style={{ animation: "kdlbar 1.1s ease-in-out infinite" }} />
+              <style>{`@keyframes kdlbar{0%{left:-35%}100%{left:100%}}`}</style>
             </div>
             <p className="font-mono text-[10px] text-faint">Keep this tab open until it finishes.</p>
           </div>
