@@ -64,7 +64,28 @@ export async function streamHls(
   }
 
   if (ext === ".ts") {
-    return res.redirect(getSignedCloudFrontUrl(requestedPath));
+    // Proxy the segment bytes through this (CORS-open) endpoint rather than
+    // 302-redirecting to the signed CDN URL. Browsers refuse to follow a
+    // cross-origin redirect for preflighted/credentialed XHRs (hls.js), which
+    // otherwise breaks playback on any embedding site.
+    const signedUrl = getSignedCloudFrontUrl(requestedPath);
+    const range = req.headers["range"] as string | undefined;
+    const upstream = await fetch(signedUrl, range ? { headers: { Range: range } } : undefined);
+
+    if (!upstream.ok && upstream.status !== 206) {
+      return res.status(502).json({ error: "Failed to fetch segment" });
+    }
+
+    res.status(upstream.status);
+    res.setHeader("Content-Type", "video/mp2t");
+    res.setHeader("Accept-Ranges", "bytes");
+    res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+    const contentRange = upstream.headers.get("content-range");
+    if (contentRange) res.setHeader("Content-Range", contentRange);
+    const contentLength = upstream.headers.get("content-length");
+    if (contentLength) res.setHeader("Content-Length", contentLength);
+
+    return res.end(Buffer.from(await upstream.arrayBuffer()));
   }
 
   if (ext === ".vtt") {

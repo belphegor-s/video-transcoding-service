@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Globe, Layers } from "lucide-react";
+import { Folder, Globe, Layers } from "lucide-react";
 import { StatusBadge } from "./status-badge";
 import { VideoThumb } from "./video-thumb";
 import { timeAgo } from "@/lib/utils";
@@ -40,6 +40,12 @@ export function VideoCard({ video }: { video: Video }) {
           <span className="inline-flex items-center gap-1.5 text-accent">
             <Globe className="h-3.5 w-3.5" />
             Public
+          </span>
+        )}
+        {video.folder && (
+          <span className="inline-flex min-w-0 items-center gap-1.5">
+            <Folder className="h-3.5 w-3.5 shrink-0" />
+            <span className="truncate">{video.folder}</span>
           </span>
         )}
       </div>

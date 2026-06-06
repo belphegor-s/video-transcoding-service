@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Loader2, Plus, RefreshCw, Video as VideoIcon } from "lucide-react";
+import { Loader2, Plus, RefreshCw, Search, Video as VideoIcon } from "lucide-react";
 import { toast } from "sonner";
 import { AppHeader } from "@/components/app-header";
 import { UploadDialog } from "@/components/upload-dialog";
@@ -11,6 +11,7 @@ import { Pagination } from "@/components/pagination";
 import { isInFlight } from "@/components/status-badge";
 import { useAuth } from "@/lib/use-auth";
 import { api } from "@/lib/api";
+import { cn } from "@/lib/utils";
 import { LIFETIME_VIDEO_LIMIT, MAX_FILE_BYTES, type Paginated, type Video } from "@/lib/types";
 
 const COUNTED: Video["status"][] = ["uploaded", "transcoding", "transcoded"];
@@ -20,6 +21,10 @@ export default function DashboardPage() {
   const { user, loading: authLoading } = useAuth();
   const [data, setData] = useState<Paginated<Video> | null>(null);
   const [offset, setOffset] = useState(0);
+  const [q, setQ] = useState("");
+  const [debouncedQ, setDebouncedQ] = useState("");
+  const [folder, setFolder] = useState(""); // "" all, "uncategorized", or a name
+  const [folders, setFolders] = useState<string[]>([]);
   const [showUpload, setShowUpload] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -28,19 +33,31 @@ export default function DashboardPage() {
     async (silent = false) => {
       if (!silent) setRefreshing(true);
       try {
-        setData(await api.videos(PAGE_SIZE, offset));
+        setData(await api.videos(PAGE_SIZE, offset, { q: debouncedQ, folder }));
       } catch {
         // keep previous state on transient errors
       } finally {
         if (!silent) setRefreshing(false);
       }
     },
-    [offset],
+    [offset, debouncedQ, folder],
   );
 
   useEffect(() => {
     if (!authLoading && user) load();
   }, [authLoading, user, load]);
+
+  // debounce search; reset to first page on query/folder change
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedQ(q.trim()), 300);
+    return () => clearTimeout(t);
+  }, [q]);
+  useEffect(() => setOffset(0), [debouncedQ, folder]);
+
+  // keep folder chips fresh
+  useEffect(() => {
+    if (!authLoading && user) api.folders().then(setFolders).catch(() => {});
+  }, [authLoading, user, data]);
 
   // poll while any video on this page is still processing
   useEffect(() => {
@@ -100,6 +117,35 @@ export default function DashboardPage() {
           </div>
         </div>
 
+        {/* search + folders */}
+        <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="relative w-full max-w-xs">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-faint" />
+            <input
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="Search videos…"
+              className="w-full rounded-xl border border-border bg-surface py-2.5 pl-9 pr-3 text-sm text-ink outline-none transition-colors placeholder:text-faint focus:border-accent/60"
+            />
+          </div>
+          {folders.length > 0 && (
+            <div className="flex flex-wrap items-center gap-2">
+              {["", ...folders, "uncategorized"].map((f) => (
+                <button
+                  key={f || "all"}
+                  onClick={() => setFolder(f)}
+                  className={cn(
+                    "rounded-full border px-3 py-1.5 font-mono text-[11px] transition-colors",
+                    folder === f ? "border-accent/50 bg-accent/10 text-accent" : "border-border text-muted hover:text-ink",
+                  )}
+                >
+                  {f === "" ? "All" : f === "uncategorized" ? "Uncategorized" : f}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
         {videos !== null && videos.length > 0 && !unlimited && (
           <div className="mb-8">
             <LimitsBanner used={usedCount} limit={LIFETIME_VIDEO_LIMIT} />
@@ -117,14 +163,23 @@ export default function DashboardPage() {
             <div className="mb-5 inline-flex h-14 w-14 items-center justify-center rounded-2xl border border-border bg-surface">
               <VideoIcon className="h-6 w-6 text-accent" strokeWidth={1.5} />
             </div>
-            <h2 className="font-serif text-2xl text-ink">No videos yet</h2>
-            <p className="mt-2 max-w-xs text-sm text-muted">
-              Upload your first source file and watch it become an adaptive stream.
-            </p>
-            <button onClick={openUpload} className="btn-primary mt-7 px-6 py-3">
-              <Plus className="h-4 w-4" />
-              Upload a video
-            </button>
+            {debouncedQ || folder ? (
+              <>
+                <h2 className="font-serif text-2xl text-ink">No matches</h2>
+                <p className="mt-2 max-w-xs text-sm text-muted">No videos match your search or folder filter.</p>
+              </>
+            ) : (
+              <>
+                <h2 className="font-serif text-2xl text-ink">No videos yet</h2>
+                <p className="mt-2 max-w-xs text-sm text-muted">
+                  Upload your first source file and watch it become an adaptive stream.
+                </p>
+                <button onClick={openUpload} className="btn-primary mt-7 px-6 py-3">
+                  <Plus className="h-4 w-4" />
+                  Upload a video
+                </button>
+              </>
+            )}
           </div>
         ) : (
           <>

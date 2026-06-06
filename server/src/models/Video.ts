@@ -14,6 +14,7 @@ export interface VideoSchema {
   caption_urls?: string;
   is_public?: boolean;
   thumbnail_key?: string | null;
+  folder?: string | null;
   created_at?: Date;
 }
 
@@ -29,6 +30,7 @@ class Video extends Model<VideoSchema> implements VideoSchema {
   public caption_urls!: string;
   public is_public!: boolean;
   public thumbnail_key!: string | null;
+  public folder!: string | null;
   public created_at!: Date;
 }
 
@@ -86,6 +88,11 @@ Video.init(
     },
     thumbnail_key: {
       type: DataTypes.STRING(1000),
+      allowNull: true,
+      defaultValue: null,
+    },
+    folder: {
+      type: DataTypes.STRING(200),
       allowNull: true,
       defaultValue: null,
     },

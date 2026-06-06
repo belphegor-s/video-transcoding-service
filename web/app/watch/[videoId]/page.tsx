@@ -10,6 +10,7 @@ import { DownloadMenu } from "@/components/download-menu";
 import { ShareControls } from "@/components/share-controls";
 import { TranscriptionPanel } from "@/components/transcription-panel";
 import { EditableTitle } from "@/components/editable-title";
+import { FolderControl } from "@/components/folder-control";
 import { StatusBadge } from "@/components/status-badge";
 import { useAuth } from "@/lib/use-auth";
 import { api, streamUrl } from "@/lib/api";
@@ -102,6 +103,13 @@ export default function WatchPage() {
                         {qualities.length} renditions
                       </span>
                     )}
+                  </div>
+                  <div className="mt-3">
+                    <FolderControl
+                      videoId={video.video_id}
+                      value={video.folder}
+                      onSaved={(folder) => setVideo({ ...video, folder })}
+                    />
                   </div>
                 </div>
                 <div className="flex shrink-0 items-center gap-2">

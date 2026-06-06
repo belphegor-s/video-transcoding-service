@@ -152,13 +152,27 @@ export const api = {
   presignUpload: (fileType: string, fileName?: string) =>
     request<PresignedPost>("/upload/upload-videos", { auth: true, query: { fileType, fileName } }),
 
-  videos: (limit = 12, offset = 0) =>
+  videos: (limit = 12, offset = 0, opts?: { q?: string; folder?: string }) =>
     request<Paginated<Video>>("/video/user-videos", {
       auth: true,
-      query: { limit: String(limit), offset: String(offset) },
+      query: {
+        limit: String(limit),
+        offset: String(offset),
+        q: opts?.q || undefined,
+        folder: opts?.folder || undefined,
+      },
     }),
 
   videoById: (videoId: string) => request<Video>("/video/by-id", { auth: true, query: { video_id: videoId } }),
+
+  folders: () => request<string[]>("/video/folders", { auth: true }),
+
+  setFolder: (videoId: string, folder: string | null) =>
+    request<{ video_id: string; folder: string | null }>("/video/folder", {
+      method: "PATCH",
+      auth: true,
+      body: { video_id: videoId, folder },
+    }),
 
   video: (s3_key: string) => request<Video>("/video/user-video", { auth: true, query: { s3_key } }),
 

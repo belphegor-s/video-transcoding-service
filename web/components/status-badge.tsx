@@ -14,7 +14,7 @@ export function StatusBadge({ status }: { status: VideoStatus }) {
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-2 rounded-full border border-border bg-surface-2 px-3 py-1 font-mono text-[11px] uppercase tracking-label",
+        "inline-flex shrink-0 items-center gap-2 whitespace-nowrap rounded-full border border-border bg-surface-2 px-3 py-1 font-mono text-[11px] uppercase tracking-label",
         s.text,
       )}
     >

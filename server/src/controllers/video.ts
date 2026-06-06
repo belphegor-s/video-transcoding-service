@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import Video from "../models/Video";
 import { z } from "zod";
+import { Op } from "sequelize";
 import jwt, { Secret } from "jsonwebtoken";
 import { streamHls } from "../utils/streamHls";
 import { getSignedCloudFrontUrl } from "../utils/getSignedCloudFrontUrl";
@@ -11,14 +12,16 @@ export const userVideosController = async (req: Request, res: Response) => {
   try {
     const limit = Math.min(Math.max(parseInt(req.query.limit as string) || 12, 1), 50);
     const offset = Math.max(parseInt(req.query.offset as string) || 0, 0);
+    const q = ((req.query.q as string) || "").trim();
+    const folder = (req.query.folder as string) || "";
+
     // @ts-ignore
-    const { rows, count } = await Video.findAndCountAll({
-      // @ts-ignore
-      where: { user_id: req?.userId },
-      order: [["created_at", "DESC"]],
-      limit,
-      offset,
-    });
+    const where: Record<string, unknown> = { user_id: req?.userId };
+    if (q) where.original_filename = { [Op.iLike]: `%${q}%` };
+    if (folder === "uncategorized") where.folder = { [Op.is]: null };
+    else if (folder) where.folder = folder;
+
+    const { rows, count } = await Video.findAndCountAll({ where, order: [["created_at", "DESC"]], limit, offset });
     return res.json({ data: { items: rows, total: count, limit, offset } });
   } catch (e: any) {
     console.error("Error occurred in userVideosController() -> ", e);
@@ -105,6 +108,46 @@ export const renameVideoController = async (req: Request, res: Response) => {
       return res.status(400).json({ error: { message: e.errors.map((x) => x.message).join("; ") } });
     }
     console.error("renameVideoController ->", e);
+    return res.status(500).json({ error: { message: e?.message ?? "Internal server error!" } });
+  }
+};
+
+export const foldersController = async (req: Request, res: Response) => {
+  try {
+    const rows = await Video.findAll({
+      // @ts-ignore
+      where: { user_id: req.userId, folder: { [Op.ne]: null } },
+      attributes: ["folder"],
+      group: ["folder"],
+      order: [["folder", "ASC"]],
+    });
+    const folders = rows.map((r) => r.folder).filter((f): f is string => !!f);
+    return res.json({ data: folders });
+  } catch (e: any) {
+    console.error("foldersController ->", e);
+    return res.status(500).json({ error: { message: e?.message ?? "Internal server error!" } });
+  }
+};
+
+const setFolderSchema = z.object({
+  video_id: z.string().uuid(),
+  folder: z.string().trim().max(200).nullable().optional(),
+});
+
+export const setFolderController = async (req: Request, res: Response) => {
+  try {
+    const { video_id, folder } = setFolderSchema.parse(req.body);
+    // @ts-ignore
+    const video = await Video.findOne({ where: { video_id, user_id: req.userId } });
+    if (!video) return res.status(404).json({ error: { message: "Video not found" } });
+    const value = folder && folder.trim() ? folder.trim() : null;
+    await video.update({ folder: value });
+    return res.json({ data: { video_id, folder: value } });
+  } catch (e: any) {
+    if (e instanceof z.ZodError) {
+      return res.status(400).json({ error: { message: e.errors.map((x) => x.message).join("; ") } });
+    }
+    console.error("setFolderController ->", e);
     return res.status(500).json({ error: { message: e?.message ?? "Internal server error!" } });
   }
 };

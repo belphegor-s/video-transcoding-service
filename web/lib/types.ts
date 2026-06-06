@@ -17,6 +17,7 @@ export interface Video {
   caption_urls: string | null;
   is_public: boolean;
   thumbnail_key: string | null;
+  folder: string | null;
   created_at: string;
 }
 
