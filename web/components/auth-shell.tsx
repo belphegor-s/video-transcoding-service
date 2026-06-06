@@ -38,8 +38,8 @@ export function AuthShell({
             Stream <span className="accent-line">everywhere</span>.
           </p>
           <p className="mt-6 max-w-sm text-sm leading-relaxed text-muted">
-            Adaptive HLS from 144p to 4K, AI-generated captions, and signed global delivery — from a
-            single source file.
+            Adaptive HLS from 144p to 4K, AI-generated captions, and signed global delivery, all from
+            a single source file.
           </p>
         </div>
         <p className="relative font-mono text-[11px] text-faint">© {new Date().getFullYear()} Ayush Sharma</p>

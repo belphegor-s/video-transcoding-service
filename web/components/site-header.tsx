@@ -18,7 +18,9 @@ export function SiteHeader() {
   return (
     <header
       className={cn(
-        "fixed inset-x-0 top-0 z-50 transition-all duration-300",
+        // transform-gpu + will-change isolate the blurred bar onto its own
+        // compositor layer, preventing Chrome's backdrop-filter ghosting on scroll.
+        "fixed inset-x-0 top-0 z-50 transform-gpu isolate [will-change:transform] [backface-visibility:hidden] transition-all duration-300",
         scrolled ? "border-b border-border bg-bg/80 backdrop-blur-xl" : "border-b border-transparent",
       )}
     >

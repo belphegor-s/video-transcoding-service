@@ -27,7 +27,7 @@ const siteUrl = "https://transcode.pixly.sh";
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   title: {
-    default: "Transcoder — adaptive video pipeline with AI captions",
+    default: "Transcoder: adaptive video pipeline with AI captions",
     template: "%s · Transcoder",
   },
   description:
@@ -35,7 +35,7 @@ export const metadata: Metadata = {
   keywords: ["video transcoding", "HLS", "adaptive bitrate", "AI captions", "ffmpeg", "CDN"],
   authors: [{ name: "Ayush Sharma" }],
   openGraph: {
-    title: "Transcoder — adaptive video pipeline with AI captions",
+    title: "Transcoder: adaptive video pipeline with AI captions",
     description: "Adaptive HLS from 144p to 4K, AI captions, global CDN. Upload once.",
     url: siteUrl,
     siteName: "Transcoder",

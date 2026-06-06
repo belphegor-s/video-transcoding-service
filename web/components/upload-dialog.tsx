@@ -109,7 +109,7 @@ export function UploadDialog({ onClose, onUploaded }: { onClose: () => void; onU
             <UploadCloud className="h-8 w-8 text-accent" strokeWidth={1.5} />
             <div>
               <p className="text-sm text-ink">Drop a file or click to browse</p>
-              <p className="mt-1 font-mono text-[11px] text-faint">MP4 · MOV · WebM · MPEG · AVI · FLV — up to 5 GB</p>
+              <p className="mt-1 font-mono text-[11px] text-faint">MP4 · MOV · WebM · MPEG · AVI · FLV, up to 5 GB</p>
             </div>
           </button>
         ) : (

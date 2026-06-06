@@ -10,7 +10,7 @@ const STEPS = [
     n: "01",
     icon: UploadCloud,
     title: "Upload once",
-    body: "Drop a file of any size. It streams straight to object storage through a presigned URL — your browser never proxies bytes through us.",
+    body: "Drop a file of any size. It streams straight to object storage through a presigned URL, so your browser never proxies bytes through us.",
   },
   {
     n: "02",
@@ -33,7 +33,7 @@ const STEPS = [
 ];
 
 const FEATURES = [
-  { icon: Layers, title: "144p to 4K, automatically", body: "A full rendition ladder built from your source — never upscaled, only what the original can honestly support." },
+  { icon: Layers, title: "144p to 4K, automatically", body: "A full rendition ladder built from your source, never upscaled, only what the original can honestly support." },
   { icon: Captions, title: "AI captions in two languages", body: "Detected source language plus English, as both WebVTT and SRT, wired into the master playlist." },
   { icon: Gauge, title: "Adaptive bitrate HLS", body: "Six-second segments and a clean master manifest mean instant starts and zero rebuffering on bad networks." },
   { icon: Lock, title: "Signed, private delivery", body: "Every segment and caption is served behind short-lived CloudFront signatures. No public buckets, ever." },
@@ -89,7 +89,7 @@ export default function LandingPage() {
               style={{ animationDelay: "360ms" }}
             >
               From a single source file to adaptive HLS in every resolution, captions in two
-              languages, and signed global delivery — without you touching ffmpeg once.
+              languages, and signed global delivery, without you touching ffmpeg once.
             </p>
 
             <div className="mt-10 flex animate-rise flex-wrap items-center gap-3" style={{ animationDelay: "440ms" }}>
