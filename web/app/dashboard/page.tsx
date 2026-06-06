@@ -4,10 +4,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Check,
+  ChevronRight,
   Download,
+  Folder,
   FolderInput,
   FolderPlus,
   Globe,
+  Home,
   Link2,
   Loader2,
   Lock,
@@ -72,7 +75,10 @@ export default function DashboardPage() {
     async (silent = false) => {
       if (!silent) setRefreshing(true);
       try {
-        setData(await api.videos(PAGE_SIZE, offset, { q: debouncedQ, folder, sort }));
+        // Root ("") shows uncategorized videos; otherwise the exact folder.
+        // When searching, search across all folders.
+        const folderParam = debouncedQ ? "" : folder === "" ? "uncategorized" : folder;
+        setData(await api.videos(PAGE_SIZE, offset, { q: debouncedQ, folder: folderParam, sort }));
       } catch {
         /* keep previous */
       } finally {
@@ -109,7 +115,23 @@ export default function DashboardPage() {
   const unlimited = !!user?.unlimited;
   const atLimit = !unlimited && usedCount >= LIFETIME_VIDEO_LIMIT;
   const selectionActive = selected.size > 0;
-  const currentFolder = folder && folder !== "uncategorized" ? folder : undefined;
+  const currentFolder = folder || undefined; // current path ("" = root)
+
+  // Immediate child folders of the current path, derived from all folder paths.
+  const subfolders = useMemo(() => {
+    const prefix = folder ? folder + "/" : "";
+    const names = new Set<string>();
+    for (const p of folders) {
+      if (!p.startsWith(prefix)) continue;
+      const rest = p.slice(prefix.length);
+      if (!rest) continue;
+      names.add(rest.split("/")[0]);
+    }
+    return [...names].sort((a, b) => a.localeCompare(b));
+  }, [folders, folder]);
+
+  const crumbs = folder ? folder.split("/") : [];
+  const browsing = !debouncedQ; // folder navigation hidden while searching
 
   const openUpload = () => {
     if (atLimit) {
@@ -288,29 +310,62 @@ export default function DashboardPage() {
               ]}
             />
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            {folders.length > 0 &&
-              ["", ...folders, "uncategorized"].map((f) => (
-                <button
-                  key={f || "all"}
-                  onClick={() => setFolder(f)}
-                  className={cn(
-                    "rounded-full border px-3 py-1.5 font-mono text-[11px] transition-colors",
-                    folder === f ? "border-accent/50 bg-accent/10 text-accent" : "border-border text-muted hover:text-ink",
-                  )}
-                >
-                  {f === "" ? "All" : f === "uncategorized" ? "Uncategorized" : f}
-                </button>
-              ))}
-            <button
-              onClick={() => setNewFolderOpen(true)}
-              className="inline-flex items-center gap-1.5 rounded-full border border-dashed border-border px-3 py-1.5 font-mono text-[11px] text-muted transition-colors hover:border-accent/50 hover:text-accent"
-            >
-              <FolderPlus className="h-3.5 w-3.5" />
-              New folder
-            </button>
-          </div>
+          <button
+            onClick={() => setNewFolderOpen(true)}
+            className="inline-flex shrink-0 items-center gap-1.5 self-start rounded-full border border-dashed border-border px-3 py-1.5 font-mono text-[11px] text-muted transition-colors hover:border-accent/50 hover:text-accent"
+          >
+            <FolderPlus className="h-3.5 w-3.5" />
+            New folder
+          </button>
         </div>
+
+        {/* breadcrumbs (folder navigation) */}
+        {browsing && (
+          <div className="mb-5 flex flex-wrap items-center gap-1 font-mono text-xs">
+            <button
+              onClick={() => setFolder("")}
+              className={cn("inline-flex items-center gap-1.5 rounded-md px-2 py-1 transition-colors hover:bg-surface", folder === "" ? "text-ink" : "text-muted hover:text-ink")}
+            >
+              <Home className="h-3.5 w-3.5" />
+              Home
+            </button>
+            {crumbs.map((seg, i) => {
+              const cp = crumbs.slice(0, i + 1).join("/");
+              const last = i === crumbs.length - 1;
+              return (
+                <span key={cp} className="flex items-center">
+                  <ChevronRight className="h-3.5 w-3.5 text-faint" />
+                  <button
+                    onClick={() => setFolder(cp)}
+                    className={cn("max-w-[180px] truncate rounded-md px-2 py-1 transition-colors hover:bg-surface", last ? "text-ink" : "text-muted hover:text-ink")}
+                  >
+                    {seg}
+                  </button>
+                </span>
+              );
+            })}
+          </div>
+        )}
+
+        {/* subfolders at this level */}
+        {browsing && subfolders.length > 0 && (
+          <div className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {subfolders.map((name) => {
+              const childPath = folder ? `${folder}/${name}` : name;
+              return (
+                <button
+                  key={name}
+                  onClick={() => setFolder(childPath)}
+                  className="group flex items-center gap-3 rounded-xl border border-border bg-surface p-4 text-left transition-colors hover:border-faint"
+                >
+                  <Folder className="h-5 w-5 shrink-0 text-accent" />
+                  <span className="truncate text-sm text-ink">{name}</span>
+                  <ChevronRight className="ml-auto h-4 w-4 shrink-0 text-faint transition-transform group-hover:translate-x-0.5" />
+                </button>
+              );
+            })}
+          </div>
+        )}
 
         {videos !== null && videos.length > 0 && !unlimited && (
           <div className="mb-8">
@@ -325,28 +380,36 @@ export default function DashboardPage() {
             ))}
           </div>
         ) : videos.length === 0 ? (
-          <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-border py-24 text-center">
-            <div className="mb-5 inline-flex h-14 w-14 items-center justify-center rounded-2xl border border-border bg-surface">
-              <VideoIcon className="h-6 w-6 text-accent" strokeWidth={1.5} />
+          // Folder with subfolders but no direct videos: subfolder cards already shown.
+          browsing && subfolders.length > 0 ? null : (
+            <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-border py-24 text-center">
+              <div className="mb-5 inline-flex h-14 w-14 items-center justify-center rounded-2xl border border-border bg-surface">
+                <VideoIcon className="h-6 w-6 text-accent" strokeWidth={1.5} />
+              </div>
+              {debouncedQ ? (
+                <>
+                  <h2 className="font-serif text-2xl text-ink">No matches</h2>
+                  <p className="mt-2 max-w-xs text-sm text-muted">No videos match your search.</p>
+                </>
+              ) : folder ? (
+                <>
+                  <h2 className="font-serif text-2xl text-ink">Empty folder</h2>
+                  <p className="mt-2 max-w-xs text-sm text-muted">No videos here yet. Move some in, or upload.</p>
+                </>
+              ) : (
+                <>
+                  <h2 className="font-serif text-2xl text-ink">No videos yet</h2>
+                  <p className="mt-2 max-w-xs text-sm text-muted">
+                    Upload your first source file and watch it become an adaptive stream.
+                  </p>
+                  <button onClick={openUpload} className="btn-primary mt-7 px-6 py-3">
+                    <Plus className="h-4 w-4" />
+                    Upload a video
+                  </button>
+                </>
+              )}
             </div>
-            {debouncedQ || folder ? (
-              <>
-                <h2 className="font-serif text-2xl text-ink">No matches</h2>
-                <p className="mt-2 max-w-xs text-sm text-muted">No videos match your search or folder filter.</p>
-              </>
-            ) : (
-              <>
-                <h2 className="font-serif text-2xl text-ink">No videos yet</h2>
-                <p className="mt-2 max-w-xs text-sm text-muted">
-                  Upload your first source file and watch it become an adaptive stream.
-                </p>
-                <button onClick={openUpload} className="btn-primary mt-7 px-6 py-3">
-                  <Plus className="h-4 w-4" />
-                  Upload a video
-                </button>
-              </>
-            )}
-          </div>
+          )
         ) : (
           <>
             <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
