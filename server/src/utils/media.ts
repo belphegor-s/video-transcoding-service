@@ -143,7 +143,9 @@ export async function getOrCreateThumbnail(video: Video): Promise<string> {
 
   const qualities = parseQualities(video);
   if (qualities.length === 0) throw new Error("No renditions to thumbnail");
-  const rendition = qualities[qualities.length - 1]; // lowest res = smallest segments
+  // Prefer the sharpest rendition <= 720p (good quality, modest segment size),
+  // else fall back to the lowest available.
+  const rendition = qualities.find((q) => q.height <= 720) ?? qualities[qualities.length - 1];
 
   const dir = tmpDir();
   try {
@@ -156,12 +158,15 @@ export async function getOrCreateThumbnail(video: Video): Promise<string> {
     await fsp.writeFile(path.join(dir, firstSeg), await getObjectBuffer(`${baseDir}/${firstSeg}`));
 
     const out = path.join(dir, "thumb.jpg");
-    try {
-      await runFfmpeg(["-ss", "1", "-i", path.join(dir, firstSeg), "-frames:v", "1", "-q:v", "3", "-vf", "scale=640:-2", out]);
-    } catch {
-      // very short segment: grab the first frame instead
-      await runFfmpeg(["-i", path.join(dir, firstSeg), "-frames:v", "1", "-q:v", "3", "-vf", "scale=640:-2", out]);
-    }
+    // `thumbnail` filter scans frames and picks a representative one (no seeking
+    // guesswork that can yield an empty/black/no-frame output).
+    await runFfmpeg([
+      "-i", path.join(dir, firstSeg),
+      "-vf", "thumbnail,scale=640:-2",
+      "-frames:v", "1",
+      "-q:v", "3",
+      out,
+    ]);
 
     const key = `${getBasePrefix(video)}/thumbnail.jpg`;
     await putObject(key, await fsp.readFile(out), "image/jpeg");
