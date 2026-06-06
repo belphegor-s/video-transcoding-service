@@ -79,6 +79,20 @@ body::before {
   background: #3a3a42;
 }
 
+/*
+ * Prevent iOS Safari auto-zoom on input focus.
+ * Safari zooms whenever a focused form control has font-size < 16px.
+ * Force 16px on touch devices only, so the desktop design keeps its 14px
+ * fields while pinch-to-zoom stays available (no maximum-scale hack).
+ */
+@media (pointer: coarse) {
+  input,
+  textarea,
+  select {
+    font-size: 16px;
+  }
+}
+
 @layer components {
   .shell {
     @apply mx-auto w-full max-w-shell px-5 sm:px-8;
