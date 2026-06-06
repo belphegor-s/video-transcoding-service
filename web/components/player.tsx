@@ -71,6 +71,13 @@ export function VideoPlayer({
     if (isHLSProvider(provider)) {
       provider.library = () => import("hls.js");
       provider.config = {
+        // Start on the lowest rendition so the very first segment is tiny and
+        // playback begins instantly, then ABR upshifts. Without this hls.js can
+        // pick a high rendition first and stall on a big initial segment.
+        startLevel: 0,
+        // Keep the startup buffer small so the player plays as soon as the first
+        // segment lands instead of pre-buffering a chunk of the video.
+        maxBufferLength: 10,
         xhrSetup(xhr) {
           if (authed) {
             const t = tokens.access();
