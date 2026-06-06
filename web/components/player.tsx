@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import "@vidstack/react/player/styles/default/theme.css";
 import "@vidstack/react/player/styles/default/layouts/video.css";
 
-import { MediaPlayer, MediaProvider, Track, isHLSProvider, type MediaProviderAdapter } from "@vidstack/react";
+import { MediaPlayer, MediaProvider, Poster, Track, isHLSProvider, type MediaProviderAdapter } from "@vidstack/react";
 import { defaultLayoutIcons, DefaultVideoLayout } from "@vidstack/react/player/layouts/default";
 import { api, captionVttUrl, tokens } from "@/lib/api";
 import { cn } from "@/lib/utils";
@@ -91,7 +91,7 @@ export function VideoPlayer({
       poster={poster}
       onProviderChange={onProviderChange}
     >
-      <MediaProvider />
+      <MediaProvider>{poster && <Poster className="vds-poster absolute inset-0 h-full w-full object-cover" alt={title ?? ""} />}</MediaProvider>
       {tracks.map((t) => (
         <Track key={t.lang} src={t.src} kind="subtitles" label={t.label} language={t.lang} default={t.default} type="vtt" />
       ))}

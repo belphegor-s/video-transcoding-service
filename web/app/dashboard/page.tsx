@@ -6,7 +6,6 @@ import {
   Check,
   ChevronRight,
   Download,
-  Folder,
   FolderInput,
   FolderPlus,
   Globe,
@@ -28,6 +27,7 @@ import { toast } from "sonner";
 import { AppHeader } from "@/components/app-header";
 import { UploadDialog } from "@/components/upload-dialog";
 import { VideoCard } from "@/components/video-card";
+import { FolderCard } from "@/components/folder-card";
 import { LimitsBanner } from "@/components/limits-banner";
 import { Pagination } from "@/components/pagination";
 import { ContextMenu, type MenuItem } from "@/components/context-menu";
@@ -63,7 +63,14 @@ export default function DashboardPage() {
   useEffect(() => {
     const v = localStorage.getItem("vt_view");
     if (v === "grid" || v === "list") setView(v);
+    const f = new URLSearchParams(window.location.search).get("folder");
+    if (f) setFolder(f);
   }, []);
+  // keep the current folder in the URL so a refresh stays in place
+  useEffect(() => {
+    const url = folder ? `${window.location.pathname}?folder=${encodeURIComponent(folder)}` : window.location.pathname;
+    window.history.replaceState(null, "", url);
+  }, [folder]);
   const changeView = (v: "grid" | "list") => {
     setView(v);
     localStorage.setItem("vt_view", v);
@@ -377,26 +384,6 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* subfolders at this level */}
-        {browsing && subfolders.length > 0 && (
-          <div className={cn("mb-6", view === "grid" ? "grid gap-3 sm:grid-cols-2 lg:grid-cols-3" : "flex flex-col gap-2")}>
-            {subfolders.map((name) => {
-              const childPath = folder ? `${folder}/${name}` : name;
-              return (
-                <button
-                  key={name}
-                  onClick={() => setFolder(childPath)}
-                  className="group flex items-center gap-3 rounded-xl border border-border bg-surface p-4 text-left transition-colors hover:border-faint"
-                >
-                  <Folder className="h-5 w-5 shrink-0 text-accent" />
-                  <span className="truncate text-sm text-ink">{name}</span>
-                  <ChevronRight className="ml-auto h-4 w-4 shrink-0 text-faint transition-transform group-hover:translate-x-0.5" />
-                </button>
-              );
-            })}
-          </div>
-        )}
-
         {videos !== null && videos.length > 0 && !unlimited && (
           <div className="mb-8">
             <LimitsBanner used={usedCount} limit={LIFETIME_VIDEO_LIMIT} />
@@ -409,40 +396,14 @@ export default function DashboardPage() {
               <div key={i} className="aspect-[4/5] animate-pulse rounded-2xl border border-border bg-surface" />
             ))}
           </div>
-        ) : videos.length === 0 ? (
-          // Folder with subfolders but no direct videos: subfolder cards already shown.
-          browsing && subfolders.length > 0 ? null : (
-            <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-border py-24 text-center">
-              <div className="mb-5 inline-flex h-14 w-14 items-center justify-center rounded-2xl border border-border bg-surface">
-                <VideoIcon className="h-6 w-6 text-accent" strokeWidth={1.5} />
-              </div>
-              {debouncedQ ? (
-                <>
-                  <h2 className="font-serif text-2xl text-ink">No matches</h2>
-                  <p className="mt-2 max-w-xs text-sm text-muted">No videos match your search.</p>
-                </>
-              ) : folder ? (
-                <>
-                  <h2 className="font-serif text-2xl text-ink">Empty folder</h2>
-                  <p className="mt-2 max-w-xs text-sm text-muted">No videos here yet. Move some in, or upload.</p>
-                </>
-              ) : (
-                <>
-                  <h2 className="font-serif text-2xl text-ink">No videos yet</h2>
-                  <p className="mt-2 max-w-xs text-sm text-muted">
-                    Upload your first source file and watch it become an adaptive stream.
-                  </p>
-                  <button onClick={openUpload} className="btn-primary mt-7 px-6 py-3">
-                    <Plus className="h-4 w-4" />
-                    Upload a video
-                  </button>
-                </>
-              )}
-            </div>
-          )
-        ) : (
+        ) : (browsing && subfolders.length > 0) || videos.length > 0 ? (
           <>
+            {/* folders + videos share one grid so they align */}
             <div className={cn(view === "grid" ? "grid gap-5 sm:grid-cols-2 lg:grid-cols-3" : "flex flex-col gap-2")}>
+              {browsing &&
+                subfolders.map((name) => (
+                  <FolderCard key={`f:${name}`} name={name} path={folder ? `${folder}/${name}` : name} view={view} onOpen={setFolder} />
+                ))}
               {videos.map((v) => (
                 <VideoCard
                   key={v.video_id}
@@ -461,6 +422,34 @@ export default function DashboardPage() {
             </div>
             {data && <Pagination total={data.total} limit={data.limit} offset={data.offset} onChange={setOffset} noun="videos" />}
           </>
+        ) : (
+          <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-border py-24 text-center">
+            <div className="mb-5 inline-flex h-14 w-14 items-center justify-center rounded-2xl border border-border bg-surface">
+              <VideoIcon className="h-6 w-6 text-accent" strokeWidth={1.5} />
+            </div>
+            {debouncedQ ? (
+              <>
+                <h2 className="font-serif text-2xl text-ink">No matches</h2>
+                <p className="mt-2 max-w-xs text-sm text-muted">No videos match your search.</p>
+              </>
+            ) : folder ? (
+              <>
+                <h2 className="font-serif text-2xl text-ink">Empty folder</h2>
+                <p className="mt-2 max-w-xs text-sm text-muted">No videos here yet. Move some in, or upload.</p>
+              </>
+            ) : (
+              <>
+                <h2 className="font-serif text-2xl text-ink">No videos yet</h2>
+                <p className="mt-2 max-w-xs text-sm text-muted">
+                  Upload your first source file and watch it become an adaptive stream.
+                </p>
+                <button onClick={openUpload} className="btn-primary mt-7 px-6 py-3">
+                  <Plus className="h-4 w-4" />
+                  Upload a video
+                </button>
+              </>
+            )}
+          </div>
         )}
       </main>
 
