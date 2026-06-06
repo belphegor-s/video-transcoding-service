@@ -7,20 +7,25 @@ import cors from "cors";
 
 const app = express();
 
-// Allowed browser origins, env-driven for production + localhost for local dev.
+// Allowed browser origins for the authed surface (our own app).
 const allowedOrigins = [env.CLIENT_APP_URL, "http://localhost:3000"];
 
-app.use(
-  cors({
-    origin(origin, callback) {
-      // Allow non-browser clients (no Origin header) and any whitelisted origin.
-      // Disallowed origins are rejected by omitting CORS headers (no thrown error,
-      // so they get a clean response the browser still blocks).
-      callback(null, !origin || allowedOrigins.includes(origin));
-    },
-    credentials: true,
-  }),
-);
+const restrictiveCors = cors({
+  origin(origin, callback) {
+    // Allow non-browser clients (no Origin header) and any whitelisted origin.
+    // Disallowed origins are rejected by omitting CORS headers (no thrown error,
+    // so they get a clean response the browser still blocks).
+    callback(null, !origin || allowedOrigins.includes(origin));
+  },
+  credentials: true,
+});
+
+// Public video + token-gated download endpoints are meant to be played and
+// embedded on any website, so they are CORS-open (like any video CDN).
+const openCors = cors();
+
+app.use(["/api/v1/public", "/api/v1/download"], openCors);
+app.use(["/api/v1/user", "/api/v1/upload", "/api/v1/video", "/api/v1/api-keys"], restrictiveCors);
 
 app.use(
   express.json({

@@ -49,8 +49,9 @@ export const uploadVideosController = async (req: Request, res: Response) => {
     const maxBytes = unlimited ? UNLIMITED_MAX_FILE_BYTES : FREE_MAX_FILE_BYTES;
     const url = await getPresignedUrl(id, fileType, userId, maxBytes);
 
+    const videoId = uuid();
     await Video.create({
-      video_id: uuid(),
+      video_id: videoId,
       user_id: userId,
       s3_key: id,
       original_filename: fileName ?? null,
@@ -58,7 +59,9 @@ export const uploadVideosController = async (req: Request, res: Response) => {
       status: "signed_url_generated",
     });
 
-    return res.json({ data: url });
+    // `url` is the presigned POST ({ url, fields }); also return the video_id +
+    // s3_key so programmatic clients can reference the video immediately.
+    return res.json({ data: { ...url, video_id: videoId, s3_key: id } });
   } catch (e: any) {
     if (e instanceof z.ZodError) {
       const errorMessage = e.errors.map((err) => `${err.path.join(".")}: ${err.message}`).join("; ");

@@ -74,9 +74,8 @@ export const setVisibilityController = async (req: Request, res: Response) => {
     // @ts-ignore
     const video = await Video.findOne({ where: { video_id, user_id: req.userId } });
     if (!video) return res.status(404).json({ error: { message: "Video not found" } });
-    if (is_public && video.status !== "transcoded") {
-      return res.status(400).json({ error: { message: "Only transcoded videos can be made public" } });
-    }
+    // Allowed before transcoding completes; the public stream still only serves
+    // once status is "transcoded", so this just pre-marks intent.
     await video.update({ is_public });
     return res.json({ data: { video_id, is_public } });
   } catch (e: any) {
