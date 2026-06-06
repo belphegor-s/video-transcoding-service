@@ -25,7 +25,7 @@ function statusClasses(status: ApiKey["status"]) {
 }
 
 function fmtDate(d: string | null) {
-  if (!d) return "—";
+  if (!d) return "never";
   return new Date(d).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
 }
 
@@ -155,7 +155,7 @@ export default function ApiKeysPage() {
               <select
                 value={presetIdx}
                 onChange={(e) => setPresetIdx(Number(e.target.value))}
-                className="field-input cursor-pointer appearance-none"
+                className="field-input cursor-pointer"
               >
                 {EXPIRY_PRESETS.map((p, i) => (
                   <option key={p.label} value={i} className="bg-surface">

@@ -27,7 +27,7 @@ export function LimitsBanner({ used, limit }: { used: number; limit: number }) {
       </div>
 
       <a
-        href="mailto:hello@ayushsharma.me?subject=Video%20Transcoder%20%E2%80%94%20higher%20limits"
+        href="mailto:hello@ayushsharma.me?subject=Video%20Transcoder%3A%20higher%20limits"
         className="btn-ghost shrink-0 px-4 py-2.5"
       >
         Contact admin

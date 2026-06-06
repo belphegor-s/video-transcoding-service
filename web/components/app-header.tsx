@@ -17,29 +17,29 @@ const NAV = [
 export function AppHeader({ user }: { user: AuthUser | null }) {
   const router = useRouter();
   const pathname = usePathname();
+
+  const isActive = (href: string) => (href === "/dashboard" ? pathname === href : pathname.startsWith(href));
+
   return (
     <header className="sticky top-0 z-40 border-b border-border bg-bg/80 backdrop-blur-xl">
       <div className="shell flex h-16 items-center justify-between gap-4">
         <div className="flex items-center gap-8">
           <Logo href="/dashboard" />
           <nav className="hidden items-center gap-6 font-mono text-xs md:flex">
-            {NAV.map((item) => {
-              const active = item.href === "/dashboard" ? pathname === item.href : pathname.startsWith(item.href);
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className={cn("transition-colors hover:text-ink", active ? "text-ink" : "text-muted")}
-                >
-                  {item.label}
-                </Link>
-              );
-            })}
+            {NAV.map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={cn("transition-colors hover:text-ink", isActive(item.href) ? "text-ink" : "text-muted")}
+              >
+                {item.label}
+              </Link>
+            ))}
           </nav>
         </div>
         <div className="flex items-center gap-4">
           {user && (
-            <span className="hidden font-mono text-xs text-muted sm:inline" title={user.email}>
+            <span className="hidden max-w-[160px] truncate font-mono text-xs text-muted sm:inline" title={user.email}>
               {user.name ? user.name : user.email}
             </span>
           )}
@@ -52,6 +52,22 @@ export function AppHeader({ user }: { user: AuthUser | null }) {
           </button>
         </div>
       </div>
+
+      {/* mobile nav */}
+      <nav className="flex items-center gap-1 overflow-x-auto border-t border-border px-4 py-2 font-mono text-xs md:hidden">
+        {NAV.map((item) => (
+          <Link
+            key={item.href}
+            href={item.href}
+            className={cn(
+              "shrink-0 rounded-full px-3 py-1.5 transition-colors",
+              isActive(item.href) ? "bg-surface text-ink" : "text-muted hover:text-ink",
+            )}
+          >
+            {item.label}
+          </Link>
+        ))}
+      </nav>
     </header>
   );
 }

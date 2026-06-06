@@ -54,7 +54,7 @@ export function TranscriptionPanel({ fetcher }: { fetcher: () => Promise<Transcr
         )}
       </div>
 
-      <div className="min-h-[200px] flex-1 overflow-y-auto px-5 py-4">
+      <div className="max-h-[460px] min-h-[200px] flex-1 overflow-y-auto px-5 py-4">
         {loading ? (
           <div className="flex h-full items-center justify-center py-10">
             <Loader2 className="h-5 w-5 animate-spin text-accent" />

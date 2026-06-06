@@ -88,7 +88,7 @@ export default function DocsPage() {
               The <span className="accent-line">Transcoder</span> API
             </h1>
             <p className="text-lg leading-relaxed text-muted">
-              Upload source files, get adaptive HLS, captions, thumbnails and downloadable MP4s — all
+              Upload source files, get adaptive HLS, captions, thumbnails and downloadable MP4s, all
               programmatically. Everything the dashboard does is available over a simple REST API.
             </p>
             <div className="space-y-2">
@@ -114,7 +114,7 @@ export default function DocsPage() {
               <Link href="/dashboard/api-keys" className="text-accent hover:underline">
                 Dashboard → API keys
               </Link>
-              . A key is shown <strong className="text-ink">once</strong> on creation — store it securely.
+              . A key is shown <strong className="text-ink">once</strong> on creation, so store it securely.
               You can set an expiry and revoke keys at any time.
             </p>
             <p className="leading-relaxed text-muted">Send your key as a header, either way works:</p>
@@ -153,12 +153,12 @@ export default function DocsPage() {
           <section className="space-y-5">
             <H id="upload">Upload a video</H>
             <p className="leading-relaxed text-muted">
-              Uploads go straight to object storage via a presigned POST — bytes never pass through the
-              API. It's a two-step flow.
+              Uploads go straight to object storage via a presigned POST, so bytes never pass through
+              the API. It's a two-step flow.
             </p>
 
             <div className="space-y-3">
-              <p className="font-mono text-xs uppercase tracking-label text-faint">Step 1 — request an upload URL</p>
+              <p className="font-mono text-xs uppercase tracking-label text-faint">Step 1: request an upload URL</p>
               <Endpoint method="GET" path="/upload/upload-videos" />
               <p className="text-sm text-muted">
                 Query params: <Code>fileType</Code> (MIME, required), <Code>fileName</Code> (original name,
@@ -175,7 +175,7 @@ export default function DocsPage() {
             </div>
 
             <div className="space-y-3">
-              <p className="font-mono text-xs uppercase tracking-label text-faint">Step 2 — POST the file to storage</p>
+              <p className="font-mono text-xs uppercase tracking-label text-faint">Step 2: POST the file to storage</p>
               <p className="text-sm text-muted">
                 Send a multipart form to <Code>url</Code> with every returned <Code>field</Code>, then the
                 file <strong className="text-ink">last</strong>. A <Code>204</Code> means success.

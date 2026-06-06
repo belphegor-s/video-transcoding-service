@@ -68,7 +68,7 @@ export function UploadDialog({
       const { url, fields } = await api.presignUpload(file.type, file.name);
       await uploadToS3(url, fields, file, setProgress);
       setPhase("done");
-      toast.success("Upload complete — transcoding has started.");
+      toast.success("Upload complete. Transcoding has started.");
       onUploaded();
       setTimeout(onClose, 900);
     } catch (e: any) {

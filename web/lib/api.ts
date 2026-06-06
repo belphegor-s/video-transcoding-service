@@ -169,10 +169,17 @@ export const api = {
       body: { video_id: videoId, is_public: isPublic },
     }),
 
+  renameVideo: (videoId: string, name: string) =>
+    request<{ video_id: string; original_filename: string }>("/video/rename", {
+      method: "PATCH",
+      auth: true,
+      body: { video_id: videoId, name },
+    }),
+
   downloadToken: (videoId: string) =>
     request<{ token: string }>("/video/download-token", { auth: true, query: { video_id: videoId } }),
 
-  // Public (embed) — no auth, gated on is_public server-side.
+  // Public (embed) endpoints: no auth, gated on is_public server-side.
   publicMeta: (videoId: string) =>
     request<{ video_id: string; title: string; qualities: string[]; has_transcription: boolean; created_at: string }>(
       "/public/video/meta",

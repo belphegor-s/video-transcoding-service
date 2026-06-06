@@ -79,6 +79,28 @@ export const setVisibilityController = async (req: Request, res: Response) => {
   }
 };
 
+const renameSchema = z.object({
+  video_id: z.string().uuid(),
+  name: z.string().trim().min(1, "Name is required").max(512, "Name too long"),
+});
+
+export const renameVideoController = async (req: Request, res: Response) => {
+  try {
+    const { video_id, name } = renameSchema.parse(req.body);
+    // @ts-ignore
+    const video = await Video.findOne({ where: { video_id, user_id: req.userId } });
+    if (!video) return res.status(404).json({ error: { message: "Video not found" } });
+    await video.update({ original_filename: name });
+    return res.json({ data: { video_id, original_filename: name } });
+  } catch (e: any) {
+    if (e instanceof z.ZodError) {
+      return res.status(400).json({ error: { message: e.errors.map((x) => x.message).join("; ") } });
+    }
+    console.error("renameVideoController ->", e);
+    return res.status(500).json({ error: { message: e?.message ?? "Internal server error!" } });
+  }
+};
+
 const videoIdQuery = z.object({ video_id: z.string().uuid() });
 
 export const thumbnailController = async (req: Request, res: Response) => {

@@ -9,6 +9,7 @@ import { VideoPlayer } from "@/components/player";
 import { DownloadMenu } from "@/components/download-menu";
 import { ShareControls } from "@/components/share-controls";
 import { TranscriptionPanel } from "@/components/transcription-panel";
+import { EditableTitle } from "@/components/editable-title";
 import { StatusBadge } from "@/components/status-badge";
 import { useAuth } from "@/lib/use-auth";
 import { api, streamUrl } from "@/lib/api";
@@ -85,9 +86,11 @@ export default function WatchPage() {
 
               <div className="mt-5 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                 <div className="min-w-0">
-                  <h1 className="truncate text-lg text-ink" title={title}>
-                    {title}
-                  </h1>
+                  <EditableTitle
+                    videoId={video.video_id}
+                    value={title}
+                    onSaved={(name) => setVideo({ ...video, original_filename: name })}
+                  />
                   <div className="mt-2 flex flex-wrap items-center gap-x-5 gap-y-2 font-mono text-[11px] text-faint">
                     <span className="inline-flex items-center gap-1.5">
                       <Clock className="h-3.5 w-3.5" />
