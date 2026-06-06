@@ -271,6 +271,10 @@ export function bulkDownloadUrl(videoIds: string[], token: string): string {
   return `${BASE}/download/bulk?ids=${encodeURIComponent(videoIds.join(","))}&token=${encodeURIComponent(token)}`;
 }
 
+export function folderDownloadUrl(path: string, token: string): string {
+  return `${BASE}/download/folder?path=${encodeURIComponent(path)}&token=${encodeURIComponent(token)}`;
+}
+
 /** URL that serves a caption .vtt (via the stream proxy) for the given path. */
 export function captionVttUrl(videoId: string, path: string, isPublic: boolean): string {
   const base = isPublic ? "/public/video/stream" : "/video/stream";

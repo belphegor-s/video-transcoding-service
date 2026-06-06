@@ -39,7 +39,7 @@ import { NewFolderDialog } from "@/components/new-folder-dialog";
 import { ConfirmModal, Modal } from "@/components/modal";
 import { isInFlight } from "@/components/status-badge";
 import { useAuth } from "@/lib/use-auth";
-import { api, bulkDownloadUrl } from "@/lib/api";
+import { api, bulkDownloadUrl, folderDownloadUrl } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { LIFETIME_VIDEO_LIMIT, MAX_FILE_BYTES, type Paginated, type Video } from "@/lib/types";
 
@@ -92,7 +92,7 @@ export default function DashboardPage() {
   const [renameTarget, setRenameTarget] = useState<Video | null>(null);
   const [renameDraft, setRenameDraft] = useState("");
   const [renaming, setRenaming] = useState(false);
-  const [dl, setDl] = useState<{ phase: "preparing" | "downloading"; received: number; total: number; count: number } | null>(null);
+  const [dl, setDl] = useState<{ phase: "preparing" | "downloading"; received: number; total: number; label: string } | null>(null);
 
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -216,19 +216,21 @@ export default function DashboardPage() {
     }
   };
 
-  const bulkDownload = async (ids: string[]) => {
-    if (ids.length === 0) return;
-    setDl({ phase: "preparing", received: 0, total: 0, count: ids.length });
+  const runZip = async (opts: { ids?: string[]; folder?: { path: string; name: string } }) => {
+    if (opts.ids && opts.ids.length === 0) return;
+    const label = opts.folder ? `"${opts.folder.name}"` : `${opts.ids!.length} ${opts.ids!.length === 1 ? "video" : "videos"}`;
+    const saveName = opts.folder ? `${opts.folder.name}.zip` : `videos_${opts.ids!.length}.zip`;
+    setDl({ phase: "preparing", received: 0, total: 0, label });
     try {
       const { token } = await api.bulkDownloadToken();
-      // fetch resolves once headers arrive, i.e. after the server finishes remuxing.
-      const res = await fetch(bulkDownloadUrl(ids, token));
+      // resolves once headers arrive, i.e. after the server finishes remuxing
+      const res = await fetch(opts.folder ? folderDownloadUrl(opts.folder.path, token) : bulkDownloadUrl(opts.ids!, token));
       if (!res.ok || !res.body) {
         const j = await res.json().catch(() => ({}));
         throw new Error(j?.error?.message || "Download failed");
       }
       const total = Number(res.headers.get("X-Total-Bytes")) || 0;
-      setDl({ phase: "downloading", received: 0, total, count: ids.length });
+      setDl({ phase: "downloading", received: 0, total, label });
       const reader = res.body.getReader();
       const chunks: Uint8Array[] = [];
       let received = 0;
@@ -237,19 +239,18 @@ export default function DashboardPage() {
         if (done) break;
         chunks.push(value);
         received += value.length;
-        setDl({ phase: "downloading", received, total, count: ids.length });
+        setDl({ phase: "downloading", received, total, label });
       }
-      const blob = new Blob(chunks as BlobPart[], { type: "application/zip" });
-      const url = URL.createObjectURL(blob);
+      const url = URL.createObjectURL(new Blob(chunks as BlobPart[], { type: "application/zip" }));
       const a = document.createElement("a");
       a.href = url;
-      a.download = `videos_${ids.length}.zip`;
+      a.download = saveName;
       document.body.appendChild(a);
       a.click();
       a.remove();
       URL.revokeObjectURL(url);
       toast.success("Download ready");
-      clearSelection();
+      if (opts.ids) clearSelection();
     } catch (e: any) {
       toast.error(e?.message ?? "Download failed");
     } finally {
@@ -304,6 +305,7 @@ export default function DashboardPage() {
       const f = menu.folder;
       return [
         { label: "Open", icon: <Folder className="h-4 w-4" />, onClick: () => setFolder(f.path) },
+        { label: "Download folder", icon: <Download className="h-4 w-4" />, onClick: () => runZip({ folder: f }) },
         { label: "Rename folder", icon: <Pencil className="h-4 w-4" />, onClick: () => { setRenameFolderDraft(f.name); setRenameFolderTarget(f); } },
         { separator: true },
         { label: "Delete folder", danger: true, icon: <Trash2 className="h-4 w-4" />, onClick: () => setDeleteFolderTarget(f) },
@@ -556,7 +558,7 @@ export default function DashboardPage() {
               Select page
             </button>
             <button
-              onClick={() => bulkDownload([...selected])}
+              onClick={() => runZip({ ids: [...selected] })}
               disabled={!!dl}
               className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 font-mono text-xs text-muted transition-colors hover:border-faint hover:text-ink disabled:opacity-50"
             >
@@ -677,9 +679,7 @@ export default function DashboardPage() {
             <Loader2 className="h-7 w-7 animate-spin text-accent" />
             {dl.phase === "preparing" ? (
               <>
-                <p className="text-sm text-ink">
-                  Preparing {dl.count} {dl.count === 1 ? "video" : "videos"}…
-                </p>
+                <p className="text-sm text-ink">Preparing {dl.label}…</p>
                 <p className="font-mono text-xs text-muted">Transcoding to MP4 and zipping</p>
                 <div className="relative h-1.5 w-full overflow-hidden rounded-full bg-surface-2">
                   <div className="absolute inset-y-0 w-1/3 rounded-full bg-accent" style={{ animation: "kdlbar 1.1s ease-in-out infinite" }} />

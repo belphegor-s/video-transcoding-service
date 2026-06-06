@@ -107,6 +107,76 @@ export const downloadAllController = async (req: Request, res: Response) => {
   }
 };
 
+// Download a whole folder (recursively): one MP4 per video, zipped with the
+// nested folder structure preserved.
+export const folderDownloadController = async (req: Request, res: Response) => {
+  const token = req.query.token as string;
+  const folderPath = ((req.query.path as string) || "").trim().replace(/\/+$/, "");
+  let claims: { userId: string; purpose: string };
+  try {
+    claims = jwt.verify(token, env.JWT_ACCESS_TOKEN_SECRET as Secret) as { userId: string; purpose: string };
+  } catch {
+    return res.status(403).json({ error: { message: "Invalid or expired download link" } });
+  }
+  if (claims.purpose !== "bulk-download") return res.status(403).json({ error: { message: "Invalid download link" } });
+  if (!folderPath) return res.status(400).json({ error: { message: "Folder is required" } });
+
+  const videos = await Video.findAll({
+    where: {
+      user_id: claims.userId,
+      status: "transcoded",
+      [Op.or]: [{ folder: folderPath }, { folder: { [Op.like]: `${folderPath}/%` } }],
+    },
+    limit: 200,
+  });
+  if (videos.length === 0) return res.status(404).json({ error: { message: "No videos in this folder" } });
+
+  const dirs: string[] = [];
+  const cleanup = () => Promise.all(dirs.map((d) => fsp.rm(d, { recursive: true, force: true }).catch(() => {})));
+
+  try {
+    const used = new Map<string, number>();
+    const files: { path: string; name: string }[] = [];
+    for (const v of videos) {
+      const top = parseQualities(v)[0];
+      if (!top) continue;
+      const out = await remuxRenditionToMp4(top.key);
+      dirs.push(out.dir);
+      // preserve relative subfolder path inside the zip
+      const rel = v.folder && v.folder !== folderPath ? v.folder.slice(folderPath.length + 1) + "/" : "";
+      let name = `${rel}${downloadBaseName(v)}_${top.label}.mp4`;
+      const n = used.get(name) ?? 0;
+      used.set(name, n + 1);
+      if (n > 0) name = name.replace(/\.mp4$/, ` (${n + 1}).mp4`);
+      files.push({ path: out.file, name });
+    }
+    if (files.length === 0) return res.status(404).json({ error: { message: "Nothing to download" } });
+
+    let total = 0;
+    for (const f of files) total += (await fsp.stat(f.path)).size;
+
+    const zipName = (folderPath.split("/").pop() || "folder").replace(/[^a-zA-Z0-9-_]+/g, "_");
+    res.setHeader("Content-Type", "application/zip");
+    res.setHeader("Content-Disposition", `attachment; filename="${zipName}.zip"`);
+    res.setHeader("X-Total-Bytes", String(total));
+
+    const archive = createArchiver("zip", { zlib: { level: 0 } });
+    archive.on("error", (err: Error) => {
+      console.error("folder archive error ->", err);
+      if (!res.headersSent) res.status(500).end();
+    });
+    res.on("close", cleanup);
+    archive.on("end", cleanup);
+    archive.pipe(res);
+    for (const f of files) archive.file(f.path, { name: f.name });
+    await archive.finalize();
+  } catch (e: any) {
+    await cleanup();
+    console.error("folderDownloadController ->", e);
+    if (!res.headersSent) res.status(500).json({ error: { message: "Failed to prepare download" } });
+  }
+};
+
 // Bulk download: one MP4 (highest quality) per selected video, zipped + streamed.
 export const bulkDownloadController = async (req: Request, res: Response) => {
   const token = req.query.token as string;
