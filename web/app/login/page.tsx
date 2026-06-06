@@ -6,9 +6,11 @@ import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { Loader2 } from "lucide-react";
 import { AuthShell } from "@/components/auth-shell";
 import { Field, Alert, SubmitButton } from "@/components/ui";
 import { api, tokens } from "@/lib/api";
+import { useRedirectIfAuthenticated } from "@/lib/use-auth";
 
 const schema = z.object({
   email: z.string().email("Enter a valid email"),
@@ -18,6 +20,7 @@ type Form = z.infer<typeof schema>;
 
 export default function LoginPage() {
   const router = useRouter();
+  const checkingSession = useRedirectIfAuthenticated();
   const [serverError, setServerError] = useState<string | null>(null);
   const {
     register,
@@ -35,6 +38,14 @@ export default function LoginPage() {
       setServerError(e?.message ?? "Something went wrong");
     }
   };
+
+  if (checkingSession) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <Loader2 className="h-6 w-6 animate-spin text-accent" />
+      </div>
+    );
+  }
 
   return (
     <AuthShell

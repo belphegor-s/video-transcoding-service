@@ -47,3 +47,39 @@ export function logout(router: { replace: (p: string) => void }) {
   tokens.clear();
   router.replace("/login");
 }
+
+/**
+ * Inverse guard for auth pages (login/signup): if a valid session already
+ * exists, bounce to the app. Returns `checking` so the page can hold its
+ * render until the verdict is in (avoids flashing the form).
+ */
+export function useRedirectIfAuthenticated(to = "/dashboard") {
+  const router = useRouter();
+  const [checking, setChecking] = useState(true);
+
+  useEffect(() => {
+    let active = true;
+
+    if (!tokens.access()) {
+      setChecking(false);
+      return;
+    }
+
+    api
+      .me()
+      .then(() => {
+        if (active) router.replace(to); // keep `checking` true so the form never flashes
+      })
+      .catch(() => {
+        if (!active) return;
+        tokens.clear();
+        setChecking(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [router, to]);
+
+  return checking;
+}

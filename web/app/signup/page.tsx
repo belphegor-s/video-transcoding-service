@@ -5,10 +5,11 @@ import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { MailCheck } from "lucide-react";
+import { Loader2, MailCheck } from "lucide-react";
 import { AuthShell } from "@/components/auth-shell";
 import { Field, Alert, SubmitButton } from "@/components/ui";
 import { api } from "@/lib/api";
+import { useRedirectIfAuthenticated } from "@/lib/use-auth";
 
 const schema = z.object({
   name: z.string().min(2, "At least 2 characters").max(255),
@@ -24,6 +25,7 @@ const schema = z.object({
 type Form = z.infer<typeof schema>;
 
 export default function SignupPage() {
+  const checkingSession = useRedirectIfAuthenticated();
   const [serverError, setServerError] = useState<string | null>(null);
   const [sentTo, setSentTo] = useState<string | null>(null);
   const {
@@ -41,6 +43,14 @@ export default function SignupPage() {
       setServerError(e?.message ?? "Something went wrong");
     }
   };
+
+  if (checkingSession) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <Loader2 className="h-6 w-6 animate-spin text-accent" />
+      </div>
+    );
+  }
 
   if (sentTo) {
     return (
