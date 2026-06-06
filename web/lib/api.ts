@@ -152,7 +152,7 @@ export const api = {
   presignUpload: (fileType: string, fileName?: string) =>
     request<PresignedPost>("/upload/upload-videos", { auth: true, query: { fileType, fileName } }),
 
-  videos: (limit = 12, offset = 0, opts?: { q?: string; folder?: string }) =>
+  videos: (limit = 12, offset = 0, opts?: { q?: string; folder?: string; sort?: string }) =>
     request<Paginated<Video>>("/video/user-videos", {
       auth: true,
       query: {
@@ -160,6 +160,7 @@ export const api = {
         offset: String(offset),
         q: opts?.q || undefined,
         folder: opts?.folder || undefined,
+        sort: opts?.sort || undefined,
       },
     }),
 

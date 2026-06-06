@@ -43,6 +43,7 @@ export const userVideosController = async (req: Request, res: Response) => {
     const offset = Math.max(parseInt(req.query.offset as string) || 0, 0);
     const q = ((req.query.q as string) || "").trim();
     const folder = (req.query.folder as string) || "";
+    const sort = (req.query.sort as string) || "newest";
 
     // @ts-ignore
     const where: Record<string, unknown> = { user_id: req?.userId };
@@ -50,7 +51,15 @@ export const userVideosController = async (req: Request, res: Response) => {
     if (folder === "uncategorized") where.folder = { [Op.is]: null };
     else if (folder) where.folder = folder;
 
-    const { rows, count } = await Video.findAndCountAll({ where, order: [["created_at", "DESC"]], limit, offset });
+    const orderMap: Record<string, any[]> = {
+      newest: [["created_at", "DESC"]],
+      oldest: [["created_at", "ASC"]],
+      name: [["original_filename", "ASC"]],
+      name_desc: [["original_filename", "DESC"]],
+    };
+    const order = orderMap[sort] ?? orderMap.newest;
+
+    const { rows, count } = await Video.findAndCountAll({ where, order, limit, offset });
     return res.json({ data: { items: rows, total: count, limit, offset } });
   } catch (e: any) {
     console.error("Error occurred in userVideosController() -> ", e);

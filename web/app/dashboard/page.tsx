@@ -26,6 +26,7 @@ import { VideoCard } from "@/components/video-card";
 import { LimitsBanner } from "@/components/limits-banner";
 import { Pagination } from "@/components/pagination";
 import { ContextMenu, type MenuItem } from "@/components/context-menu";
+import { Select } from "@/components/select";
 import { MoveDialog } from "@/components/move-dialog";
 import { NewFolderDialog } from "@/components/new-folder-dialog";
 import { Modal } from "@/components/modal";
@@ -51,6 +52,7 @@ export default function DashboardPage() {
   const [debouncedQ, setDebouncedQ] = useState("");
   const [folder, setFolder] = useState("");
   const [folders, setFolders] = useState<string[]>([]);
+  const [sort, setSort] = useState("newest");
   const [showUpload, setShowUpload] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -70,14 +72,14 @@ export default function DashboardPage() {
     async (silent = false) => {
       if (!silent) setRefreshing(true);
       try {
-        setData(await api.videos(PAGE_SIZE, offset, { q: debouncedQ, folder }));
+        setData(await api.videos(PAGE_SIZE, offset, { q: debouncedQ, folder, sort }));
       } catch {
         /* keep previous */
       } finally {
         if (!silent) setRefreshing(false);
       }
     },
-    [offset, debouncedQ, folder],
+    [offset, debouncedQ, folder, sort],
   );
 
   useEffect(() => {
@@ -87,7 +89,7 @@ export default function DashboardPage() {
     const t = setTimeout(() => setDebouncedQ(q.trim()), 300);
     return () => clearTimeout(t);
   }, [q]);
-  useEffect(() => setOffset(0), [debouncedQ, folder]);
+  useEffect(() => setOffset(0), [debouncedQ, folder, sort]);
   const refreshFolders = useCallback(() => api.folders().then(setFolders).catch(() => {}), []);
   useEffect(() => {
     if (!authLoading && user) refreshFolders();
@@ -261,15 +263,29 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* search + folders */}
+        {/* search + sort + folders */}
         <div className="mb-6 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          <div className="relative w-full max-w-xs">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-faint" />
-            <input
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              placeholder="Search videos…"
-              className="w-full rounded-xl border border-border bg-surface py-2.5 pl-9 pr-3 text-sm text-ink outline-none transition-colors placeholder:text-faint focus:border-accent/60"
+          <div className="flex w-full max-w-md items-center gap-2">
+            <div className="relative flex-1">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-faint" />
+              <input
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                placeholder="Search videos…"
+                className="w-full rounded-xl border border-border bg-surface py-2.5 pl-9 pr-3 text-sm text-ink outline-none transition-colors placeholder:text-faint focus:border-accent/60"
+              />
+            </div>
+            <Select
+              ariaLabel="Sort"
+              className="w-36 shrink-0"
+              value={sort}
+              onChange={setSort}
+              options={[
+                { label: "Newest", value: "newest" },
+                { label: "Oldest", value: "oldest" },
+                { label: "Name A→Z", value: "name" },
+                { label: "Name Z→A", value: "name_desc" },
+              ]}
             />
           </div>
           <div className="flex flex-wrap items-center gap-2">
