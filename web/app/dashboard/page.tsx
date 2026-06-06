@@ -82,6 +82,7 @@ export default function DashboardPage() {
 
   // file-manager state
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [selectedFolders, setSelectedFolders] = useState<Set<string>>(new Set());
   const [menu, setMenu] = useState<{ x: number; y: number; video?: Video; folder?: { path: string; name: string } } | null>(null);
   const [renameFolderTarget, setRenameFolderTarget] = useState<{ path: string; name: string } | null>(null);
   const [renameFolderDraft, setRenameFolderDraft] = useState("");
@@ -143,7 +144,7 @@ export default function DashboardPage() {
   const usedCount = videos?.filter((v) => COUNTED.includes(v.status)).length ?? 0;
   const unlimited = !!user?.unlimited;
   const atLimit = !unlimited && usedCount >= LIFETIME_VIDEO_LIMIT;
-  const selectionActive = selected.size > 0;
+  const selectionActive = selected.size > 0 || selectedFolders.size > 0;
   const currentFolder = folder || undefined; // current path ("" = root)
 
   // Immediate child folders of the current path, derived from all folder paths.
@@ -178,8 +179,20 @@ export default function DashboardPage() {
       next.has(v.video_id) ? next.delete(v.video_id) : next.add(v.video_id);
       return next;
     });
-  const clearSelection = () => setSelected(new Set());
-  const selectAll = () => setSelected(new Set((videos ?? []).map((v) => v.video_id)));
+  const toggleSelectFolder = (path: string) =>
+    setSelectedFolders((prev) => {
+      const next = new Set(prev);
+      next.has(path) ? next.delete(path) : next.add(path);
+      return next;
+    });
+  const clearSelection = () => {
+    setSelected(new Set());
+    setSelectedFolders(new Set());
+  };
+  const selectAll = () => {
+    setSelected(new Set((videos ?? []).map((v) => v.video_id)));
+    setSelectedFolders(new Set(subfolders.map((name) => (folder ? `${folder}/${name}` : name))));
+  };
 
   const openVideo = (v: Video) => router.push(`/watch/${v.video_id}`);
 
@@ -256,6 +269,15 @@ export default function DashboardPage() {
     } finally {
       setDl(null);
     }
+  };
+
+  const downloadSelection = async () => {
+    if (dl) return;
+    for (const path of selectedFolders) {
+      await runZip({ folder: { path, name: path.split("/").pop() ?? path } });
+    }
+    if (selected.size > 0) await runZip({ ids: [...selected] });
+    clearSelection();
   };
 
   const doRenameFolder = async () => {
@@ -500,6 +522,9 @@ export default function DashboardPage() {
                       name={name}
                       path={folder ? `${folder}/${name}` : name}
                       view={view}
+                      selected={selectedFolders.has(folder ? `${folder}/${name}` : name)}
+                      selectionActive={selectionActive}
+                      onToggleSelect={toggleSelectFolder}
                       onOpen={setFolder}
                       onContextMenu={(e, path, fname) => {
                         e.preventDefault();
@@ -553,22 +578,24 @@ export default function DashboardPage() {
       {selectionActive && (
         <div className="fixed inset-x-0 bottom-6 z-40 flex justify-center px-4">
           <div className="flex items-center gap-2 rounded-full border border-border bg-surface/95 px-3 py-2 shadow-2xl backdrop-blur">
-            <span className="px-2 font-mono text-xs text-ink">{selected.size} selected</span>
+            <span className="px-2 font-mono text-xs text-ink">{selected.size + selectedFolders.size} selected</span>
             <button onClick={selectAll} className="rounded-full px-3 py-1.5 font-mono text-xs text-muted transition-colors hover:text-ink">
               Select page
             </button>
             <button
-              onClick={() => runZip({ ids: [...selected] })}
+              onClick={downloadSelection}
               disabled={!!dl}
               className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 font-mono text-xs text-muted transition-colors hover:border-faint hover:text-ink disabled:opacity-50"
             >
               <Download className="h-3.5 w-3.5" />
               Download
             </button>
-            <button onClick={() => setMoveTarget([...selected])} className="btn-primary px-4 py-1.5 text-xs">
-              <FolderInput className="h-3.5 w-3.5" />
-              Move to folder
-            </button>
+            {selected.size > 0 && (
+              <button onClick={() => setMoveTarget([...selected])} className="btn-primary px-4 py-1.5 text-xs">
+                <FolderInput className="h-3.5 w-3.5" />
+                Move to folder
+              </button>
+            )}
             <button onClick={clearSelection} className="inline-flex items-center gap-1 rounded-full px-3 py-1.5 font-mono text-xs text-muted transition-colors hover:text-ink">
               <X className="h-3.5 w-3.5" />
               Clear
