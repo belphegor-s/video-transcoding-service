@@ -23,6 +23,9 @@ export function VideoPlayer({
 }) {
   function onProviderChange(provider: MediaProviderAdapter | null) {
     if (isHLSProvider(provider)) {
+      // Use the bundled hls.js instead of Vidstack's default CDN fetch
+      // (blocked by our CSP, and avoids a third-party runtime dependency).
+      provider.library = () => import("hls.js");
       provider.config = {
         xhrSetup(xhr) {
           if (authed) {

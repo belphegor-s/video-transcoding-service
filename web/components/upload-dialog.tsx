@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Film, Loader2, UploadCloud, X } from "lucide-react";
 import { toast } from "sonner";
 import { api, ApiError } from "@/lib/api";
@@ -44,6 +44,12 @@ export function UploadDialog({
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
+  const [folder, setFolder] = useState("");
+  const [folders, setFolders] = useState<string[]>([]);
+
+  useEffect(() => {
+    api.folders().then(setFolders).catch(() => {});
+  }, []);
 
   const pick = useCallback((f: File | null) => {
     setError(null);
@@ -65,8 +71,15 @@ export function UploadDialog({
     setProgress(0);
     setError(null);
     try {
-      const { url, fields } = await api.presignUpload(file.type, file.name);
-      await uploadToS3(url, fields, file, setProgress);
+      const presign = await api.presignUpload(file.type, file.name);
+      await uploadToS3(presign.url, presign.fields, file, setProgress);
+      if (folder.trim()) {
+        try {
+          await api.setFolder(presign.video_id, folder.trim());
+        } catch {
+          /* non-fatal */
+        }
+      }
       setPhase("done");
       toast.success("Upload complete. Transcoding has started.");
       onUploaded();
@@ -139,6 +152,24 @@ export function UploadDialog({
                 </button>
               )}
             </div>
+
+            {!busy && phase !== "done" && (
+              <div>
+                <label className="field-label">Folder (optional)</label>
+                <input
+                  list="upload-folders"
+                  value={folder}
+                  onChange={(e) => setFolder(e.target.value)}
+                  placeholder="e.g. Testimonials"
+                  className="field-input"
+                />
+                <datalist id="upload-folders">
+                  {folders.map((f) => (
+                    <option key={f} value={f} />
+                  ))}
+                </datalist>
+              </div>
+            )}
 
             {(busy || phase === "done") && (
               <div>

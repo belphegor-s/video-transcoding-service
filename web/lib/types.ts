@@ -89,4 +89,6 @@ export interface CreatedApiKey extends ApiKey {
 export interface PresignedPost {
   url: string;
   fields: Record<string, string>;
+  video_id: string;
+  s3_key: string;
 }
