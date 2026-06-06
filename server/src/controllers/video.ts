@@ -1,7 +1,36 @@
 import { Request, Response } from "express";
 import Video from "../models/Video";
+import Folder from "../models/Folder";
 import { z } from "zod";
 import { Op } from "sequelize";
+import { v4 as uuid } from "uuid";
+
+/** Normalize a (possibly nested) folder path: trim segments, drop empties. */
+function normalizeFolderPath(input: string): string {
+  return input
+    .split("/")
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .join("/");
+}
+
+/** All ancestor paths inclusive: "A/B/C" -> ["A","A/B","A/B/C"]. */
+function ancestorPaths(path: string): string[] {
+  const segs = path.split("/");
+  const out: string[] = [];
+  let cur = "";
+  for (const s of segs) {
+    cur = cur ? `${cur}/${s}` : s;
+    out.push(cur);
+  }
+  return out;
+}
+
+async function ensureFolderPath(userId: string, path: string) {
+  for (const p of ancestorPaths(path)) {
+    await Folder.findOrCreate({ where: { user_id: userId, path: p }, defaults: { folder_id: uuid(), user_id: userId, path: p } });
+  }
+}
 import jwt, { Secret } from "jsonwebtoken";
 import { streamHls } from "../utils/streamHls";
 import { getSignedCloudFrontUrl } from "../utils/getSignedCloudFrontUrl";
@@ -114,17 +143,66 @@ export const renameVideoController = async (req: Request, res: Response) => {
 
 export const foldersController = async (req: Request, res: Response) => {
   try {
-    const rows = await Video.findAll({
-      // @ts-ignore
-      where: { user_id: req.userId, folder: { [Op.ne]: null } },
-      attributes: ["folder"],
-      group: ["folder"],
-      order: [["folder", "ASC"]],
-    });
-    const folders = rows.map((r) => r.folder).filter((f): f is string => !!f);
+    // @ts-ignore
+    const userId = req.userId;
+    const [folderRows, videoRows] = await Promise.all([
+      Folder.findAll({ where: { user_id: userId }, attributes: ["path"] }),
+      Video.findAll({ where: { user_id: userId, folder: { [Op.ne]: null } }, attributes: ["folder"], group: ["folder"] }),
+    ]);
+    const set = new Set<string>();
+    folderRows.forEach((r) => r.path && set.add(r.path));
+    videoRows.forEach((r) => r.folder && set.add(r.folder));
+    const folders = [...set].sort((a, b) => a.localeCompare(b));
     return res.json({ data: folders });
   } catch (e: any) {
     console.error("foldersController ->", e);
+    return res.status(500).json({ error: { message: e?.message ?? "Internal server error!" } });
+  }
+};
+
+const createFolderSchema = z.object({ path: z.string().min(1).max(500) });
+
+export const createFolderController = async (req: Request, res: Response) => {
+  try {
+    const { path } = createFolderSchema.parse(req.body);
+    const norm = normalizeFolderPath(path);
+    if (!norm) return res.status(400).json({ error: { message: "Folder name is required" } });
+    if (norm.split("/").some((s) => s.length > 200)) {
+      return res.status(400).json({ error: { message: "Each folder name must be 200 characters or fewer" } });
+    }
+    if (norm.split("/").length > 10) {
+      return res.status(400).json({ error: { message: "Folders can be nested up to 10 levels" } });
+    }
+    // @ts-ignore
+    await ensureFolderPath(req.userId, norm);
+    return res.status(201).json({ data: { path: norm } });
+  } catch (e: any) {
+    if (e instanceof z.ZodError) return res.status(400).json({ error: { message: e.errors.map((x) => x.message).join("; ") } });
+    console.error("createFolderController ->", e);
+    return res.status(500).json({ error: { message: e?.message ?? "Internal server error!" } });
+  }
+};
+
+const moveVideosSchema = z.object({
+  video_ids: z.array(z.string().uuid()).min(1).max(100),
+  folder: z.string().max(500).nullable().optional(),
+});
+
+export const moveVideosController = async (req: Request, res: Response) => {
+  try {
+    const { video_ids, folder } = moveVideosSchema.parse(req.body);
+    const norm = folder ? normalizeFolderPath(folder) : null;
+    // @ts-ignore
+    const userId = req.userId;
+    if (norm) await ensureFolderPath(userId, norm);
+    const [count] = await Video.update(
+      { folder: norm },
+      { where: { user_id: userId, video_id: { [Op.in]: video_ids } } },
+    );
+    return res.json({ data: { moved: count, folder: norm } });
+  } catch (e: any) {
+    if (e instanceof z.ZodError) return res.status(400).json({ error: { message: e.errors.map((x) => x.message).join("; ") } });
+    console.error("moveVideosController ->", e);
     return res.status(500).json({ error: { message: e?.message ?? "Internal server error!" } });
   }
 };

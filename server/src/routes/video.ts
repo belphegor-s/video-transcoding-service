@@ -1,7 +1,9 @@
 import { Router } from "express";
 import {
+  createFolderController,
   downloadTokenController,
   foldersController,
+  moveVideosController,
   renameVideoController,
   setFolderController,
   setVisibilityController,
@@ -18,6 +20,8 @@ router.get("/user-videos", userVideosController);
 router.get("/user-video", userVideoController);
 router.get("/by-id", videoByIdController);
 router.get("/folders", foldersController);
+router.post("/folders", createFolderController);
+router.patch("/move", moveVideosController);
 router.get("/stream", streamVideoController);
 router.get("/thumbnail", thumbnailController);
 router.get("/transcription", transcriptionController);

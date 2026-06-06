@@ -1,13 +1,33 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import { Loader2, Plus, RefreshCw, Search, Video as VideoIcon } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
+import {
+  Check,
+  FolderInput,
+  FolderPlus,
+  Globe,
+  Link2,
+  Loader2,
+  Lock,
+  Pencil,
+  Play,
+  Plus,
+  RefreshCw,
+  Search,
+  Video as VideoIcon,
+  X,
+} from "lucide-react";
 import { toast } from "sonner";
 import { AppHeader } from "@/components/app-header";
 import { UploadDialog } from "@/components/upload-dialog";
 import { VideoCard } from "@/components/video-card";
 import { LimitsBanner } from "@/components/limits-banner";
 import { Pagination } from "@/components/pagination";
+import { ContextMenu, type MenuItem } from "@/components/context-menu";
+import { MoveDialog } from "@/components/move-dialog";
+import { NewFolderDialog } from "@/components/new-folder-dialog";
+import { Modal } from "@/components/modal";
 import { isInFlight } from "@/components/status-badge";
 import { useAuth } from "@/lib/use-auth";
 import { api } from "@/lib/api";
@@ -17,16 +37,31 @@ import { LIFETIME_VIDEO_LIMIT, MAX_FILE_BYTES, type Paginated, type Video } from
 const COUNTED: Video["status"][] = ["uploaded", "transcoding", "transcoded"];
 const PAGE_SIZE = 12;
 
+function displayName(v: Video) {
+  return v.original_filename || (v.s3_key.split("/").pop() ?? "video").replace(/^video-/, "");
+}
+
 export default function DashboardPage() {
+  const router = useRouter();
   const { user, loading: authLoading } = useAuth();
   const [data, setData] = useState<Paginated<Video> | null>(null);
   const [offset, setOffset] = useState(0);
   const [q, setQ] = useState("");
   const [debouncedQ, setDebouncedQ] = useState("");
-  const [folder, setFolder] = useState(""); // "" all, "uncategorized", or a name
+  const [folder, setFolder] = useState("");
   const [folders, setFolders] = useState<string[]>([]);
   const [showUpload, setShowUpload] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+
+  // file-manager state
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [menu, setMenu] = useState<{ x: number; y: number; video: Video } | null>(null);
+  const [moveTarget, setMoveTarget] = useState<string[] | null>(null);
+  const [newFolderOpen, setNewFolderOpen] = useState(false);
+  const [renameTarget, setRenameTarget] = useState<Video | null>(null);
+  const [renameDraft, setRenameDraft] = useState("");
+  const [renaming, setRenaming] = useState(false);
+
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const load = useCallback(
@@ -35,7 +70,7 @@ export default function DashboardPage() {
       try {
         setData(await api.videos(PAGE_SIZE, offset, { q: debouncedQ, folder }));
       } catch {
-        // keep previous state on transient errors
+        /* keep previous */
       } finally {
         if (!silent) setRefreshing(false);
       }
@@ -46,20 +81,16 @@ export default function DashboardPage() {
   useEffect(() => {
     if (!authLoading && user) load();
   }, [authLoading, user, load]);
-
-  // debounce search; reset to first page on query/folder change
   useEffect(() => {
     const t = setTimeout(() => setDebouncedQ(q.trim()), 300);
     return () => clearTimeout(t);
   }, [q]);
   useEffect(() => setOffset(0), [debouncedQ, folder]);
-
-  // keep folder chips fresh
+  const refreshFolders = useCallback(() => api.folders().then(setFolders).catch(() => {}), []);
   useEffect(() => {
-    if (!authLoading && user) api.folders().then(setFolders).catch(() => {});
-  }, [authLoading, user, data]);
+    if (!authLoading && user) refreshFolders();
+  }, [authLoading, user, refreshFolders, data]);
 
-  // poll while any video on this page is still processing
   useEffect(() => {
     const anyInFlight = data?.items.some((v) => isInFlight(v.status));
     if (pollRef.current) clearInterval(pollRef.current);
@@ -73,6 +104,8 @@ export default function DashboardPage() {
   const usedCount = videos?.filter((v) => COUNTED.includes(v.status)).length ?? 0;
   const unlimited = !!user?.unlimited;
   const atLimit = !unlimited && usedCount >= LIFETIME_VIDEO_LIMIT;
+  const selectionActive = selected.size > 0;
+  const currentFolder = folder && folder !== "uncategorized" ? folder : undefined;
 
   const openUpload = () => {
     if (atLimit) {
@@ -83,6 +116,74 @@ export default function DashboardPage() {
     }
     setShowUpload(true);
   };
+
+  const toggleSelect = (v: Video) =>
+    setSelected((prev) => {
+      const next = new Set(prev);
+      next.has(v.video_id) ? next.delete(v.video_id) : next.add(v.video_id);
+      return next;
+    });
+  const clearSelection = () => setSelected(new Set());
+  const selectAll = () => setSelected(new Set((videos ?? []).map((v) => v.video_id)));
+
+  const openVideo = (v: Video) => router.push(`/watch/${v.video_id}`);
+
+  const toggleVisibility = async (v: Video) => {
+    try {
+      await api.setVisibility(v.video_id, !v.is_public);
+      toast.success(!v.is_public ? "Now public" : "Now private");
+      load(true);
+    } catch (e: any) {
+      toast.error(e?.message ?? "Couldn't update visibility");
+    }
+  };
+
+  const copyEmbed = (v: Video) => {
+    const origin = typeof window !== "undefined" ? window.location.origin : "";
+    navigator.clipboard.writeText(`${origin}/embed/${v.video_id}`);
+    toast.success("Embed link copied");
+  };
+
+  const doRename = async () => {
+    if (!renameTarget) return;
+    const name = renameDraft.trim();
+    if (!name) return toast.error("Name can't be empty");
+    setRenaming(true);
+    try {
+      await api.renameVideo(renameTarget.video_id, name);
+      toast.success("Renamed");
+      setRenameTarget(null);
+      load(true);
+    } catch (e: any) {
+      toast.error(e?.message ?? "Rename failed");
+    } finally {
+      setRenaming(false);
+    }
+  };
+
+  const menuItems = useMemo<MenuItem[]>(() => {
+    if (!menu) return [];
+    const v = menu.video;
+    const items: MenuItem[] = [];
+    if (v.status === "transcoded") items.push({ label: "Open", icon: <Play className="h-4 w-4" />, onClick: () => openVideo(v) });
+    items.push({ label: "Rename", icon: <Pencil className="h-4 w-4" />, onClick: () => { setRenameDraft(displayName(v)); setRenameTarget(v); } });
+    items.push({ label: "Move to folder", icon: <FolderInput className="h-4 w-4" />, onClick: () => setMoveTarget([v.video_id]) });
+    if (v.status === "transcoded")
+      items.push({
+        label: v.is_public ? "Make private" : "Make public",
+        icon: v.is_public ? <Lock className="h-4 w-4" /> : <Globe className="h-4 w-4" />,
+        onClick: () => toggleVisibility(v),
+      });
+    if (v.is_public) items.push({ label: "Copy embed link", icon: <Link2 className="h-4 w-4" />, onClick: () => copyEmbed(v) });
+    items.push({ separator: true });
+    items.push({
+      label: selected.has(v.video_id) ? "Deselect" : "Select",
+      icon: <Check className="h-4 w-4" />,
+      onClick: () => toggleSelect(v),
+    });
+    return items;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [menu, selected]);
 
   if (authLoading || !user) {
     return (
@@ -118,7 +219,7 @@ export default function DashboardPage() {
         </div>
 
         {/* search + folders */}
-        <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="mb-6 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div className="relative w-full max-w-xs">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-faint" />
             <input
@@ -128,9 +229,9 @@ export default function DashboardPage() {
               className="w-full rounded-xl border border-border bg-surface py-2.5 pl-9 pr-3 text-sm text-ink outline-none transition-colors placeholder:text-faint focus:border-accent/60"
             />
           </div>
-          {folders.length > 0 && (
-            <div className="flex flex-wrap items-center gap-2">
-              {["", ...folders, "uncategorized"].map((f) => (
+          <div className="flex flex-wrap items-center gap-2">
+            {folders.length > 0 &&
+              ["", ...folders, "uncategorized"].map((f) => (
                 <button
                   key={f || "all"}
                   onClick={() => setFolder(f)}
@@ -142,8 +243,14 @@ export default function DashboardPage() {
                   {f === "" ? "All" : f === "uncategorized" ? "Uncategorized" : f}
                 </button>
               ))}
-            </div>
-          )}
+            <button
+              onClick={() => setNewFolderOpen(true)}
+              className="inline-flex items-center gap-1.5 rounded-full border border-dashed border-border px-3 py-1.5 font-mono text-[11px] text-muted transition-colors hover:border-accent/50 hover:text-accent"
+            >
+              <FolderPlus className="h-3.5 w-3.5" />
+              New folder
+            </button>
+          </div>
         </div>
 
         {videos !== null && videos.length > 0 && !unlimited && (
@@ -185,13 +292,94 @@ export default function DashboardPage() {
           <>
             <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
               {videos.map((v) => (
-                <VideoCard key={v.video_id} video={v} />
+                <VideoCard
+                  key={v.video_id}
+                  video={v}
+                  selected={selected.has(v.video_id)}
+                  selectionActive={selectionActive}
+                  onOpen={openVideo}
+                  onToggleSelect={toggleSelect}
+                  onContextMenu={(e, vid) => {
+                    e.preventDefault();
+                    setMenu({ x: e.clientX, y: e.clientY, video: vid });
+                  }}
+                />
               ))}
             </div>
             {data && <Pagination total={data.total} limit={data.limit} offset={data.offset} onChange={setOffset} noun="videos" />}
           </>
         )}
       </main>
+
+      {/* selection toolbar */}
+      {selectionActive && (
+        <div className="fixed inset-x-0 bottom-6 z-40 flex justify-center px-4">
+          <div className="flex items-center gap-2 rounded-full border border-border bg-surface/95 px-3 py-2 shadow-2xl backdrop-blur">
+            <span className="px-2 font-mono text-xs text-ink">{selected.size} selected</span>
+            <button onClick={selectAll} className="rounded-full px-3 py-1.5 font-mono text-xs text-muted transition-colors hover:text-ink">
+              Select page
+            </button>
+            <button onClick={() => setMoveTarget([...selected])} className="btn-primary px-4 py-1.5 text-xs">
+              <FolderInput className="h-3.5 w-3.5" />
+              Move to folder
+            </button>
+            <button onClick={clearSelection} className="inline-flex items-center gap-1 rounded-full px-3 py-1.5 font-mono text-xs text-muted transition-colors hover:text-ink">
+              <X className="h-3.5 w-3.5" />
+              Clear
+            </button>
+          </div>
+        </div>
+      )}
+
+      {menu && <ContextMenu x={menu.x} y={menu.y} items={menuItems} onClose={() => setMenu(null)} />}
+
+      {moveTarget && (
+        <MoveDialog
+          videoIds={moveTarget}
+          folders={folders}
+          currentFolder={currentFolder}
+          onClose={() => setMoveTarget(null)}
+          onMoved={() => {
+            setMoveTarget(null);
+            clearSelection();
+            load(true);
+            refreshFolders();
+          }}
+        />
+      )}
+
+      {newFolderOpen && (
+        <NewFolderDialog
+          parent={currentFolder}
+          onClose={() => setNewFolderOpen(false)}
+          onCreated={(path) => {
+            setNewFolderOpen(false);
+            refreshFolders();
+            setFolder(path);
+          }}
+        />
+      )}
+
+      {renameTarget && (
+        <Modal open onClose={renaming ? () => {} : () => setRenameTarget(null)} className="max-w-sm">
+          <h2 className="mb-4 font-serif text-xl text-ink">Rename video</h2>
+          <input
+            autoFocus
+            value={renameDraft}
+            onChange={(e) => setRenameDraft(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && doRename()}
+            className="field-input"
+          />
+          <div className="mt-5 flex justify-end gap-2">
+            <button onClick={() => setRenameTarget(null)} disabled={renaming} className="btn-ghost px-4 py-2.5">
+              Cancel
+            </button>
+            <button onClick={doRename} disabled={renaming} className="btn-primary px-5 py-2.5">
+              {renaming ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save"}
+            </button>
+          </div>
+        </Modal>
+      )}
 
       {showUpload && (
         <UploadDialog

@@ -174,6 +174,16 @@ export const api = {
       body: { video_id: videoId, folder },
     }),
 
+  createFolder: (path: string) =>
+    request<{ path: string }>("/video/folders", { method: "POST", auth: true, body: { path } }),
+
+  moveVideos: (videoIds: string[], folder: string | null) =>
+    request<{ moved: number; folder: string | null }>("/video/move", {
+      method: "PATCH",
+      auth: true,
+      body: { video_ids: videoIds, folder },
+    }),
+
   video: (s3_key: string) => request<Video>("/video/user-video", { auth: true, query: { s3_key } }),
 
   thumbnail: (videoId: string) =>
