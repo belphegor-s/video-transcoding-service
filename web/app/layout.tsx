@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Instrument_Serif, Hanken_Grotesk, JetBrains_Mono } from "next/font/google";
+import { Toaster } from "sonner";
 import "./globals.css";
 
 const serif = Instrument_Serif({
@@ -47,7 +48,21 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={`${serif.variable} ${sans.variable} ${mono.variable}`}>
-      <body className="relative antialiased">{children}</body>
+      <body className="relative antialiased">
+        {children}
+        <Toaster
+          theme="dark"
+          position="bottom-right"
+          toastOptions={{
+            style: {
+              background: "var(--surface)",
+              border: "1px solid var(--border)",
+              color: "var(--ink)",
+              fontFamily: "var(--font-sans)",
+            },
+          }}
+        />
+      </body>
     </html>
   );
 }

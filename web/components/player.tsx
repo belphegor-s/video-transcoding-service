@@ -1,0 +1,51 @@
+"use client";
+
+import "@vidstack/react/player/styles/default/theme.css";
+import "@vidstack/react/player/styles/default/layouts/video.css";
+
+import { MediaPlayer, MediaProvider, isHLSProvider, type MediaProviderAdapter } from "@vidstack/react";
+import { defaultLayoutIcons, DefaultVideoLayout } from "@vidstack/react/player/layouts/default";
+import { tokens } from "@/lib/api";
+import { cn } from "@/lib/utils";
+
+export function VideoPlayer({
+  src,
+  title,
+  poster,
+  authed = true,
+  className,
+}: {
+  src: string;
+  title?: string;
+  poster?: string;
+  authed?: boolean;
+  className?: string;
+}) {
+  function onProviderChange(provider: MediaProviderAdapter | null) {
+    if (isHLSProvider(provider)) {
+      provider.config = {
+        xhrSetup(xhr) {
+          if (authed) {
+            const t = tokens.access();
+            if (t) xhr.setRequestHeader("Authorization", `Bearer ${t}`);
+          }
+        },
+      };
+    }
+  }
+
+  return (
+    <MediaPlayer
+      className={cn("aspect-video w-full overflow-hidden rounded-2xl border border-border bg-black", className)}
+      style={{ "--video-brand": "#cdfb46" }}
+      title={title}
+      src={{ src, type: "application/x-mpegurl" }}
+      playsInline
+      poster={poster}
+      onProviderChange={onProviderChange}
+    >
+      <MediaProvider />
+      <DefaultVideoLayout icons={defaultLayoutIcons} />
+    </MediaPlayer>
+  );
+}

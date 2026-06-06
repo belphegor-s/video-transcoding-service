@@ -2,11 +2,12 @@
 
 import { useCallback, useRef, useState } from "react";
 import { Film, Loader2, UploadCloud, X } from "lucide-react";
+import { toast } from "sonner";
 import { api, ApiError } from "@/lib/api";
+import { MAX_FILE_BYTES } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 const ALLOWED = ["video/mp4", "video/mpeg", "video/quicktime", "video/x-msvideo", "video/x-flv", "video/webm"];
-const MAX_BYTES = 5 * 1024 * 1024 * 1024; // 5GB, matches presigned-post policy
 
 type Phase = "idle" | "uploading" | "done" | "error";
 
@@ -42,8 +43,8 @@ export function UploadDialog({ onClose, onUploaded }: { onClose: () => void; onU
       setError("Unsupported format. Use MP4, MOV, WebM, MPEG, AVI or FLV.");
       return;
     }
-    if (f.size > MAX_BYTES) {
-      setError("File exceeds the 5 GB limit.");
+    if (f.size > MAX_FILE_BYTES) {
+      setError("File exceeds the 1 GB limit.");
       return;
     }
     setFile(f);
@@ -55,14 +56,17 @@ export function UploadDialog({ onClose, onUploaded }: { onClose: () => void; onU
     setProgress(0);
     setError(null);
     try {
-      const { url, fields } = await api.presignUpload(file.type);
+      const { url, fields } = await api.presignUpload(file.type, file.name);
       await uploadToS3(url, fields, file, setProgress);
       setPhase("done");
+      toast.success("Upload complete — transcoding has started.");
       onUploaded();
       setTimeout(onClose, 900);
     } catch (e: any) {
       setPhase("error");
-      setError(e instanceof ApiError ? e.message : e?.message ?? "Upload failed");
+      const msg = e instanceof ApiError ? e.message : e?.message ?? "Upload failed";
+      setError(msg);
+      toast.error(msg);
     }
   };
 
@@ -109,7 +113,7 @@ export function UploadDialog({ onClose, onUploaded }: { onClose: () => void; onU
             <UploadCloud className="h-8 w-8 text-accent" strokeWidth={1.5} />
             <div>
               <p className="text-sm text-ink">Drop a file or click to browse</p>
-              <p className="mt-1 font-mono text-[11px] text-faint">MP4 · MOV · WebM · MPEG · AVI · FLV, up to 5 GB</p>
+              <p className="mt-1 font-mono text-[11px] text-faint">MP4 · MOV · WebM · MPEG · AVI · FLV, up to 1 GB</p>
             </div>
           </button>
         ) : (

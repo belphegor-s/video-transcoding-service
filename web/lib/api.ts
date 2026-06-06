@@ -1,4 +1,4 @@
-import type { AuthUser, PresignedPost, Video } from "./types";
+import type { AuthUser, PresignedPost, Transcription, Video } from "./types";
 
 const BASE = (process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:9191/api/v1").replace(/\/$/, "");
 
@@ -149,15 +149,57 @@ export const api = {
 
   me: () => request<AuthUser>("/user/me", { auth: true }),
 
-  presignUpload: (fileType: string) =>
-    request<PresignedPost>("/upload/upload-videos", { auth: true, query: { fileType } }),
+  presignUpload: (fileType: string, fileName?: string) =>
+    request<PresignedPost>("/upload/upload-videos", { auth: true, query: { fileType, fileName } }),
 
   videos: () => request<Video[]>("/video/user-videos", { auth: true }),
 
   video: (s3_key: string) => request<Video>("/video/user-video", { auth: true, query: { s3_key } }),
+
+  thumbnail: (videoId: string) =>
+    request<{ url: string }>("/video/thumbnail", { auth: true, query: { video_id: videoId } }),
+
+  transcription: (videoId: string) =>
+    request<Transcription>("/video/transcription", { auth: true, query: { video_id: videoId } }),
+
+  setVisibility: (videoId: string, isPublic: boolean) =>
+    request<{ video_id: string; is_public: boolean }>("/video/visibility", {
+      method: "PATCH",
+      auth: true,
+      body: { video_id: videoId, is_public: isPublic },
+    }),
+
+  downloadToken: (videoId: string) =>
+    request<{ token: string }>("/video/download-token", { auth: true, query: { video_id: videoId } }),
+
+  // Public (embed) — no auth, gated on is_public server-side.
+  publicMeta: (videoId: string) =>
+    request<{ video_id: string; title: string; qualities: string[]; has_transcription: boolean; created_at: string }>(
+      "/public/video/meta",
+      { query: { video_id: videoId } },
+    ),
+
+  publicTranscription: (videoId: string) =>
+    request<Transcription>("/public/video/transcription", { query: { video_id: videoId } }),
+
+  publicThumbnail: (videoId: string) =>
+    request<{ url: string }>("/public/video/thumbnail", { query: { video_id: videoId } }),
 };
 
-/** Master playlist URL for hls.js (auth header attached via xhrSetup). */
+/** Authed master-playlist URL for the player (Bearer attached via xhrSetup). */
 export function streamUrl(videoId: string): string {
   return `${BASE}/video/stream?video_id=${encodeURIComponent(videoId)}`;
+}
+
+/** Public master-playlist URL for the embed player (no auth). */
+export function publicStreamUrl(videoId: string): string {
+  return `${BASE}/public/video/stream?video_id=${encodeURIComponent(videoId)}`;
+}
+
+export function downloadQualityUrl(videoId: string, quality: string, token: string): string {
+  return `${BASE}/download/video?video_id=${encodeURIComponent(videoId)}&quality=${encodeURIComponent(quality)}&token=${encodeURIComponent(token)}`;
+}
+
+export function downloadAllUrl(videoId: string, token: string): string {
+  return `${BASE}/download/all?video_id=${encodeURIComponent(videoId)}&token=${encodeURIComponent(token)}`;
 }

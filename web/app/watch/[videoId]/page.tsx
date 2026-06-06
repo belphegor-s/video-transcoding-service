@@ -5,17 +5,21 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { ArrowLeft, Clock, Layers, Loader2 } from "lucide-react";
 import { AppHeader } from "@/components/app-header";
-import { HlsPlayer } from "@/components/hls-player";
+import { VideoPlayer } from "@/components/player";
+import { DownloadMenu } from "@/components/download-menu";
+import { ShareControls } from "@/components/share-controls";
+import { TranscriptionPanel } from "@/components/transcription-panel";
 import { StatusBadge } from "@/components/status-badge";
 import { useAuth } from "@/lib/use-auth";
-import { api } from "@/lib/api";
+import { api, streamUrl } from "@/lib/api";
+import { qualitiesFromVideo, type Video } from "@/lib/types";
 import { timeAgo } from "@/lib/utils";
-import type { Video } from "@/lib/types";
 
 export default function WatchPage() {
   const { videoId } = useParams<{ videoId: string }>();
   const { user, loading: authLoading } = useAuth();
   const [video, setVideo] = useState<Video | null | undefined>(undefined);
+  const [poster, setPoster] = useState<string | undefined>();
 
   useEffect(() => {
     if (authLoading || !user) return;
@@ -25,6 +29,12 @@ export default function WatchPage() {
       .catch(() => setVideo(null));
   }, [authLoading, user, videoId]);
 
+  useEffect(() => {
+    if (video?.status === "transcoded") {
+      api.thumbnail(video.video_id).then((r) => setPoster(r.url)).catch(() => {});
+    }
+  }, [video]);
+
   if (authLoading || !user || video === undefined) {
     return (
       <div className="flex min-h-screen items-center justify-center">
@@ -33,7 +43,8 @@ export default function WatchPage() {
     );
   }
 
-  const fileName = video ? (video.s3_key.split("/").pop() ?? "video").replace(/^video-/, "") : "";
+  const title = video ? video.original_filename ?? (video.s3_key.split("/").pop() ?? "video").replace(/^video-/, "") : "";
+  const qualities = video ? qualitiesFromVideo(video).map((q) => q.label) : [];
 
   return (
     <div className="relative z-10 min-h-screen">
@@ -51,43 +62,61 @@ export default function WatchPage() {
             <p className="mt-2 text-sm text-muted">It may have been removed, or the link is wrong.</p>
           </div>
         ) : (
-          <div className="mx-auto max-w-4xl">
-            {video.status === "transcoded" ? (
-              <HlsPlayer videoId={video.video_id} />
-            ) : (
-              <div className="flex aspect-video flex-col items-center justify-center gap-4 rounded-2xl border border-border bg-surface text-center">
-                {video.status === "error" ? (
-                  <p className="font-serif text-2xl text-danger">Transcoding failed</p>
-                ) : (
-                  <>
-                    <Loader2 className="h-7 w-7 animate-spin text-accent" />
-                    <div>
-                      <p className="font-serif text-2xl text-ink">Still processing</p>
-                      <p className="mt-1 text-sm text-muted">This page will be ready once transcoding completes.</p>
-                    </div>
-                  </>
-                )}
-              </div>
-            )}
+          <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
+            {/* left: player + meta + downloads */}
+            <div className="min-w-0">
+              {video.status === "transcoded" ? (
+                <VideoPlayer src={streamUrl(video.video_id)} title={title} poster={poster} authed />
+              ) : (
+                <div className="flex aspect-video flex-col items-center justify-center gap-4 rounded-2xl border border-border bg-surface text-center">
+                  {video.status === "error" ? (
+                    <p className="font-serif text-2xl text-danger">Transcoding failed</p>
+                  ) : (
+                    <>
+                      <Loader2 className="h-7 w-7 animate-spin text-accent" />
+                      <div>
+                        <p className="font-serif text-2xl text-ink">Still processing</p>
+                        <p className="mt-1 text-sm text-muted">This page will be ready once transcoding completes.</p>
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
 
-            <div className="mt-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <h1 className="font-mono text-lg text-ink">{fileName}</h1>
-                <div className="mt-2 flex flex-wrap items-center gap-x-5 gap-y-2 font-mono text-[11px] text-faint">
-                  <span className="inline-flex items-center gap-1.5">
-                    <Clock className="h-3.5 w-3.5" />
-                    {timeAgo(video.created_at)}
-                  </span>
-                  {video.transcoded_urls?.length > 0 && (
+              <div className="mt-5 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                <div className="min-w-0">
+                  <h1 className="truncate text-lg text-ink" title={title}>
+                    {title}
+                  </h1>
+                  <div className="mt-2 flex flex-wrap items-center gap-x-5 gap-y-2 font-mono text-[11px] text-faint">
                     <span className="inline-flex items-center gap-1.5">
-                      <Layers className="h-3.5 w-3.5 text-accent" />
-                      {video.transcoded_urls.length} renditions
+                      <Clock className="h-3.5 w-3.5" />
+                      {timeAgo(video.created_at)}
                     </span>
+                    {qualities.length > 0 && (
+                      <span className="inline-flex items-center gap-1.5">
+                        <Layers className="h-3.5 w-3.5 text-accent" />
+                        {qualities.length} renditions
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <div className="flex shrink-0 items-center gap-2">
+                  <StatusBadge status={video.status} />
+                  {video.status === "transcoded" && qualities.length > 0 && (
+                    <DownloadMenu videoId={video.video_id} qualities={qualities} />
                   )}
                 </div>
               </div>
-              <StatusBadge status={video.status} />
             </div>
+
+            {/* right: share + transcription */}
+            {video.status === "transcoded" && (
+              <aside className="flex min-w-0 flex-col gap-6">
+                <ShareControls videoId={video.video_id} initialPublic={video.is_public} />
+                <TranscriptionPanel fetcher={() => api.transcription(video.video_id)} />
+              </aside>
+            )}
           </div>
         )}
       </main>

@@ -6,7 +6,7 @@ export const getPresignedUrl = async (key: string, fileType: string, userId: str
     Bucket: process.env.S3_BUCKET_NAME!,
     Key: key,
     Conditions: [
-      ["content-length-range", 0, 1024 * 1024 * 1024 * 5], // Max 5GB
+      ["content-length-range", 0, 1024 * 1024 * 1024], // Max 1GB
       { "Content-Type": fileType },
       { "x-amz-meta-userId": userId },
     ],

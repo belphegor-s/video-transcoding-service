@@ -2,13 +2,17 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Loader2, Plus, RefreshCw, Video as VideoIcon } from "lucide-react";
+import { toast } from "sonner";
 import { AppHeader } from "@/components/app-header";
 import { UploadDialog } from "@/components/upload-dialog";
 import { VideoCard } from "@/components/video-card";
+import { LimitsBanner } from "@/components/limits-banner";
 import { isInFlight } from "@/components/status-badge";
 import { useAuth } from "@/lib/use-auth";
 import { api } from "@/lib/api";
-import type { Video } from "@/lib/types";
+import { LIFETIME_VIDEO_LIMIT, type Video } from "@/lib/types";
+
+const COUNTED: Video["status"][] = ["uploaded", "transcoding", "transcoded"];
 
 export default function DashboardPage() {
   const { user, loading: authLoading } = useAuth();
@@ -47,6 +51,19 @@ export default function DashboardPage() {
     };
   }, [videos, load]);
 
+  const usedCount = videos?.filter((v) => COUNTED.includes(v.status)).length ?? 0;
+  const atLimit = usedCount >= LIFETIME_VIDEO_LIMIT;
+
+  const openUpload = () => {
+    if (atLimit) {
+      toast.error(`You've reached the free limit of ${LIFETIME_VIDEO_LIMIT} videos.`, {
+        description: "Contact hello@ayushsharma.me for higher limits.",
+      });
+      return;
+    }
+    setShowUpload(true);
+  };
+
   if (authLoading || !user) {
     return (
       <div className="flex min-h-screen items-center justify-center">
@@ -73,12 +90,18 @@ export default function DashboardPage() {
               <RefreshCw className={`h-3.5 w-3.5 ${refreshing ? "animate-spin" : ""}`} />
               Refresh
             </button>
-            <button onClick={() => setShowUpload(true)} className="btn-primary px-5 py-2.5">
+            <button onClick={openUpload} className="btn-primary px-5 py-2.5">
               <Plus className="h-4 w-4" />
               Upload
             </button>
           </div>
         </div>
+
+        {videos !== null && videos.length > 0 && (
+          <div className="mb-8">
+            <LimitsBanner used={usedCount} limit={LIFETIME_VIDEO_LIMIT} />
+          </div>
+        )}
 
         {videos === null ? (
           <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
@@ -95,7 +118,7 @@ export default function DashboardPage() {
             <p className="mt-2 max-w-xs text-sm text-muted">
               Upload your first source file and watch it become an adaptive stream.
             </p>
-            <button onClick={() => setShowUpload(true)} className="btn-primary mt-7 px-6 py-3">
+            <button onClick={openUpload} className="btn-primary mt-7 px-6 py-3">
               <Plus className="h-4 w-4" />
               Upload a video
             </button>

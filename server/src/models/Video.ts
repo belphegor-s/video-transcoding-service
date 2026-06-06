@@ -6,11 +6,14 @@ export interface VideoSchema {
   video_id: string;
   user_id: string;
   s3_key: string;
+  original_filename?: string | null;
   mime_type: string;
   status: "signed_url_generated" | "uploaded" | "transcoding" | "transcoded" | "error";
   transcoded_urls?: string[];
   master_playlist_url?: string;
   caption_urls?: string;
+  is_public?: boolean;
+  thumbnail_key?: string | null;
   created_at?: Date;
 }
 
@@ -18,11 +21,14 @@ class Video extends Model<VideoSchema> implements VideoSchema {
   public video_id!: string;
   public user_id!: string;
   public s3_key!: string;
+  public original_filename!: string | null;
   public mime_type!: string;
   public status!: "signed_url_generated" | "uploaded" | "transcoding" | "transcoded" | "error";
   public transcoded_urls!: string[];
   public master_playlist_url!: string;
   public caption_urls!: string;
+  public is_public!: boolean;
+  public thumbnail_key!: string | null;
   public created_at!: Date;
 }
 
@@ -45,6 +51,11 @@ Video.init(
       allowNull: false,
       unique: true,
     },
+    original_filename: {
+      type: DataTypes.STRING,
+      allowNull: true,
+      defaultValue: null,
+    },
     mime_type: {
       type: DataTypes.STRING,
       allowNull: false,
@@ -64,6 +75,16 @@ Video.init(
       defaultValue: null,
     },
     caption_urls: {
+      type: DataTypes.STRING(1000),
+      allowNull: true,
+      defaultValue: null,
+    },
+    is_public: {
+      type: DataTypes.BOOLEAN,
+      allowNull: false,
+      defaultValue: false,
+    },
+    thumbnail_key: {
       type: DataTypes.STRING(1000),
       allowNull: true,
       defaultValue: null,

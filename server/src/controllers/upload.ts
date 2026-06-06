@@ -1,41 +1,44 @@
 import "dotenv/config";
 import { Request, Response } from "express";
 import { z } from "zod";
+import { Op } from "sequelize";
 import { v4 as uuid } from "uuid";
 import { getPresignedUrl } from "../utils/getPresignedUrl";
 import Video from "../models/Video";
-import { getRedisClient } from "../lib/redisClient";
 
-const getQueueSize = async (userId: string) => {
-  const client = await getRedisClient();
-  const objectKeys = await client.hKeys(userId);
-  return objectKeys.length;
-};
+// Lifetime cap: a user may keep at most this many real (uploaded+) videos.
+export const LIFETIME_VIDEO_LIMIT = 5;
+const COUNTED_STATUSES = ["uploaded", "transcoding", "transcoded"];
+
+const getLifetimeCount = (userId: string) =>
+  Video.count({ where: { user_id: userId, status: { [Op.in]: COUNTED_STATUSES } } });
 
 const allowedVideoTypes = ["video/mp4", "video/mpeg", "video/quicktime", "video/x-msvideo", "video/x-flv", "video/webm"];
 
 const uploadVideosSchema = z.object({
   fileType: z
-    .string({
-      required_error: "fileType is required",
-      invalid_type_error: "fileType must be a string",
-    })
+    .string({ required_error: "fileType is required", invalid_type_error: "fileType must be a string" })
     .refine((value) => allowedVideoTypes.includes(value), {
       message: `Invalid file type. Allowed types are: ${allowedVideoTypes.join(", ")}`,
     }),
+  fileName: z.string().max(512).optional(),
 });
 
 export const uploadVideosController = async (req: Request, res: Response) => {
   try {
-    const { fileType } = uploadVideosSchema.parse(req.query);
+    const { fileType, fileName } = uploadVideosSchema.parse(req.query);
 
     // @ts-ignore
     const userId = req.userId;
 
-    const queueSize = await getQueueSize(userId);
-
-    if (queueSize >= 5) {
-      return res.status(400).json({ error: { message: "Queue limit reached for userId" } });
+    const count = await getLifetimeCount(userId);
+    if (count >= LIFETIME_VIDEO_LIMIT) {
+      return res.status(403).json({
+        error: {
+          code: "LIMIT_REACHED",
+          message: `You've reached the free limit of ${LIFETIME_VIDEO_LIMIT} videos. Contact hello@ayushsharma.me for higher limits or on-prem deployment.`,
+        },
+      });
     }
 
     const id = `uploads/${userId}/video-${uuid()}`;
@@ -45,6 +48,7 @@ export const uploadVideosController = async (req: Request, res: Response) => {
       video_id: uuid(),
       user_id: userId,
       s3_key: id,
+      original_filename: fileName ?? null,
       mime_type: fileType,
       status: "signed_url_generated",
     });
