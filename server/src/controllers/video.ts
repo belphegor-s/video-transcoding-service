@@ -192,6 +192,60 @@ export const createFolderController = async (req: Request, res: Response) => {
   }
 };
 
+const renameFolderSchema = z.object({ from: z.string().min(1).max(500), to: z.string().min(1).max(500) });
+
+export const renameFolderController = async (req: Request, res: Response) => {
+  try {
+    const parsed = renameFolderSchema.parse(req.body);
+    const from = normalizeFolderPath(parsed.from);
+    const to = normalizeFolderPath(parsed.to);
+    if (!from || !to) return res.status(400).json({ error: { message: "Invalid folder name" } });
+    if (to.split("/").some((s) => s.length > 200)) return res.status(400).json({ error: { message: "Folder name too long" } });
+    // @ts-ignore
+    const userId = req.userId;
+    if (from === to) return res.json({ data: { from, to } });
+
+    const match = { [Op.or]: [{ folder: from }, { folder: { [Op.like]: `${from}/%` } }] };
+    const vids = await Video.findAll({ where: { user_id: userId, ...match } });
+    for (const v of vids) {
+      const nf = v.folder === from ? to : to + v.folder!.slice(from.length);
+      await v.update({ folder: nf });
+    }
+
+    const fols = await Folder.findAll({
+      where: { user_id: userId, [Op.or]: [{ path: from }, { path: { [Op.like]: `${from}/%` } }] },
+    });
+    const oldPaths = fols.map((f) => f.path);
+    await Folder.destroy({ where: { user_id: userId, [Op.or]: [{ path: from }, { path: { [Op.like]: `${from}/%` } }] } });
+    await ensureFolderPath(userId, to);
+    for (const op of oldPaths) await ensureFolderPath(userId, op === from ? to : to + op.slice(from.length));
+
+    return res.json({ data: { from, to } });
+  } catch (e: any) {
+    if (e instanceof z.ZodError) return res.status(400).json({ error: { message: e.errors.map((x) => x.message).join("; ") } });
+    console.error("renameFolderController ->", e);
+    return res.status(500).json({ error: { message: e?.message ?? "Internal server error!" } });
+  }
+};
+
+export const deleteFolderController = async (req: Request, res: Response) => {
+  try {
+    const path = normalizeFolderPath((req.query.path as string) || "");
+    if (!path) return res.status(400).json({ error: { message: "Folder path is required" } });
+    // @ts-ignore
+    const userId = req.userId;
+    const match = { [Op.or]: [{ path }, { path: { [Op.like]: `${path}/%` } }] };
+    const videoMatch = { [Op.or]: [{ folder: path }, { folder: { [Op.like]: `${path}/%` } }] };
+    // Videos inside move to uncategorized (not deleted).
+    await Video.update({ folder: null }, { where: { user_id: userId, ...videoMatch } });
+    await Folder.destroy({ where: { user_id: userId, ...match } });
+    return res.json({ data: { path } });
+  } catch (e: any) {
+    console.error("deleteFolderController ->", e);
+    return res.status(500).json({ error: { message: e?.message ?? "Internal server error!" } });
+  }
+};
+
 const moveVideosSchema = z.object({
   video_ids: z.array(z.string().uuid()).min(1).max(100),
   folder: z.string().max(500).nullable().optional(),

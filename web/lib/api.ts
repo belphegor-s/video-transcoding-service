@@ -178,6 +178,12 @@ export const api = {
   createFolder: (path: string) =>
     request<{ path: string }>("/video/folders", { method: "POST", auth: true, body: { path } }),
 
+  renameFolder: (from: string, to: string) =>
+    request<{ from: string; to: string }>("/video/folders/rename", { method: "PATCH", auth: true, body: { from, to } }),
+
+  deleteFolder: (path: string) =>
+    request<{ path: string }>("/video/folders", { method: "DELETE", auth: true, query: { path } }),
+
   moveVideos: (videoIds: string[], folder: string | null) =>
     request<{ moved: number; folder: string | null }>("/video/move", {
       method: "PATCH",

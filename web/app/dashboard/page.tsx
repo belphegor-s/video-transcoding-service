@@ -6,8 +6,10 @@ import {
   Check,
   ChevronRight,
   Download,
+  Folder,
   FolderInput,
   FolderPlus,
+  Trash2,
   Globe,
   Home,
   LayoutGrid,
@@ -34,7 +36,7 @@ import { ContextMenu, type MenuItem } from "@/components/context-menu";
 import { Select } from "@/components/select";
 import { MoveDialog } from "@/components/move-dialog";
 import { NewFolderDialog } from "@/components/new-folder-dialog";
-import { Modal } from "@/components/modal";
+import { ConfirmModal, Modal } from "@/components/modal";
 import { isInFlight } from "@/components/status-badge";
 import { useAuth } from "@/lib/use-auth";
 import { api, bulkDownloadUrl } from "@/lib/api";
@@ -80,7 +82,11 @@ export default function DashboardPage() {
 
   // file-manager state
   const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [menu, setMenu] = useState<{ x: number; y: number; video: Video } | null>(null);
+  const [menu, setMenu] = useState<{ x: number; y: number; video?: Video; folder?: { path: string; name: string } } | null>(null);
+  const [renameFolderTarget, setRenameFolderTarget] = useState<{ path: string; name: string } | null>(null);
+  const [renameFolderDraft, setRenameFolderDraft] = useState("");
+  const [deleteFolderTarget, setDeleteFolderTarget] = useState<{ path: string; name: string } | null>(null);
+  const [folderBusy, setFolderBusy] = useState(false);
   const [moveTarget, setMoveTarget] = useState<string[] | null>(null);
   const [newFolderOpen, setNewFolderOpen] = useState(false);
   const [renameTarget, setRenameTarget] = useState<Video | null>(null);
@@ -251,9 +257,59 @@ export default function DashboardPage() {
     }
   };
 
+  const doRenameFolder = async () => {
+    if (!renameFolderTarget) return;
+    const name = renameFolderDraft.trim().replace(/\//g, "-");
+    if (!name) return toast.error("Name can't be empty");
+    const { path } = renameFolderTarget;
+    const parent = path.includes("/") ? path.slice(0, path.lastIndexOf("/")) : "";
+    const to = parent ? `${parent}/${name}` : name;
+    setFolderBusy(true);
+    try {
+      await api.renameFolder(path, to);
+      if (folder === path || folder.startsWith(path + "/")) setFolder(to + folder.slice(path.length));
+      else load(true);
+      toast.success("Folder renamed");
+      setRenameFolderTarget(null);
+      refreshFolders();
+    } catch (e: any) {
+      toast.error(e?.message ?? "Rename failed");
+    } finally {
+      setFolderBusy(false);
+    }
+  };
+
+  const doDeleteFolder = async () => {
+    if (!deleteFolderTarget) return;
+    const { path } = deleteFolderTarget;
+    setFolderBusy(true);
+    try {
+      await api.deleteFolder(path);
+      if (folder === path || folder.startsWith(path + "/")) {
+        setFolder(path.includes("/") ? path.slice(0, path.lastIndexOf("/")) : "");
+      } else load(true);
+      toast.success("Folder deleted");
+      setDeleteFolderTarget(null);
+      refreshFolders();
+    } catch (e: any) {
+      toast.error(e?.message ?? "Delete failed");
+    } finally {
+      setFolderBusy(false);
+    }
+  };
+
   const menuItems = useMemo<MenuItem[]>(() => {
     if (!menu) return [];
-    const v = menu.video;
+    if (menu.folder) {
+      const f = menu.folder;
+      return [
+        { label: "Open", icon: <Folder className="h-4 w-4" />, onClick: () => setFolder(f.path) },
+        { label: "Rename folder", icon: <Pencil className="h-4 w-4" />, onClick: () => { setRenameFolderDraft(f.name); setRenameFolderTarget(f); } },
+        { separator: true },
+        { label: "Delete folder", danger: true, icon: <Trash2 className="h-4 w-4" />, onClick: () => setDeleteFolderTarget(f) },
+      ];
+    }
+    const v = menu.video!;
     const items: MenuItem[] = [];
     if (v.status === "transcoded") items.push({ label: "Open", icon: <Play className="h-4 w-4" />, onClick: () => openVideo(v) });
     items.push({ label: "Rename", icon: <Pencil className="h-4 w-4" />, onClick: () => { setRenameDraft(displayName(v)); setRenameTarget(v); } });
@@ -437,18 +493,38 @@ export default function DashboardPage() {
               <div className={cn(view === "grid" ? "grid gap-5 sm:grid-cols-2 lg:grid-cols-3" : "flex flex-col gap-2")}>
                 {hasFolders &&
                   subfolders.map((name) => (
-                    <FolderCard key={`f:${name}`} name={name} path={folder ? `${folder}/${name}` : name} view={view} onOpen={setFolder} />
+                    <FolderCard
+                      key={`f:${name}`}
+                      name={name}
+                      path={folder ? `${folder}/${name}` : name}
+                      view={view}
+                      onOpen={setFolder}
+                      onContextMenu={(e, path, fname) => {
+                        e.preventDefault();
+                        setMenu({ x: e.clientX, y: e.clientY, folder: { path, name: fname } });
+                      }}
+                    />
                   ))}
                 {loading
-                  ? Array.from({ length: 6 }).map((_, i) => (
-                      <div
-                        key={`s${i}`}
-                        className={cn(
-                          "animate-pulse border border-border bg-surface",
-                          view === "grid" ? "aspect-[4/5] rounded-2xl" : "h-20 rounded-xl",
-                        )}
-                      />
-                    ))
+                  ? Array.from({ length: 6 }).map((_, i) =>
+                      view === "grid" ? (
+                        <div key={`s${i}`} className="flex flex-col gap-4 rounded-2xl border border-border bg-surface p-5">
+                          <div className="aspect-video animate-pulse rounded-xl bg-surface-2" />
+                          <div className="space-y-2">
+                            <div className="h-3 w-2/3 animate-pulse rounded bg-surface-2" />
+                            <div className="h-2.5 w-1/3 animate-pulse rounded bg-surface-2" />
+                          </div>
+                        </div>
+                      ) : (
+                        <div key={`s${i}`} className="flex items-center gap-4 rounded-xl border border-border bg-surface p-3">
+                          <div className="h-12 w-24 animate-pulse rounded-lg bg-surface-2 sm:w-32" />
+                          <div className="flex-1 space-y-2">
+                            <div className="h-3 w-1/2 animate-pulse rounded bg-surface-2" />
+                            <div className="h-2.5 w-1/4 animate-pulse rounded bg-surface-2" />
+                          </div>
+                        </div>
+                      ),
+                    )
                   : videos!.map((v) => (
                       <VideoCard
                         key={v.video_id}
@@ -548,6 +624,44 @@ export default function DashboardPage() {
           </div>
         </Modal>
       )}
+
+      {renameFolderTarget && (
+        <Modal open onClose={folderBusy ? () => {} : () => setRenameFolderTarget(null)} className="max-w-sm">
+          <h2 className="mb-4 font-serif text-xl text-ink">Rename folder</h2>
+          <input
+            autoFocus
+            value={renameFolderDraft}
+            onChange={(e) => setRenameFolderDraft(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && doRenameFolder()}
+            className="field-input"
+          />
+          <p className="mt-2 font-mono text-[10px] text-faint">Renames this folder and everything inside it.</p>
+          <div className="mt-5 flex justify-end gap-2">
+            <button onClick={() => setRenameFolderTarget(null)} disabled={folderBusy} className="btn-ghost px-4 py-2.5">
+              Cancel
+            </button>
+            <button onClick={doRenameFolder} disabled={folderBusy} className="btn-primary px-5 py-2.5">
+              {folderBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save"}
+            </button>
+          </div>
+        </Modal>
+      )}
+
+      <ConfirmModal
+        open={!!deleteFolderTarget}
+        onClose={() => setDeleteFolderTarget(null)}
+        onConfirm={doDeleteFolder}
+        loading={folderBusy}
+        destructive
+        confirmLabel="Delete folder"
+        title="Delete folder?"
+        description={
+          <>
+            Delete <span className="text-ink">{deleteFolderTarget?.name}</span> and its subfolders. Videos inside move to
+            uncategorized (they are not deleted).
+          </>
+        }
+      />
 
       {showUpload && (
         <UploadDialog

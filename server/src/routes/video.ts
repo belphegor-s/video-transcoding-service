@@ -3,9 +3,11 @@ import {
   bulkDownloadTokenController,
   captionsController,
   createFolderController,
+  deleteFolderController,
   downloadTokenController,
   foldersController,
   moveVideosController,
+  renameFolderController,
   renameVideoController,
   setFolderController,
   setVisibilityController,
@@ -23,6 +25,8 @@ router.get("/user-video", userVideoController);
 router.get("/by-id", videoByIdController);
 router.get("/folders", foldersController);
 router.post("/folders", createFolderController);
+router.patch("/folders/rename", renameFolderController);
+router.delete("/folders", deleteFolderController);
 router.patch("/move", moveVideosController);
 router.get("/stream", streamVideoController);
 router.get("/thumbnail", thumbnailController);

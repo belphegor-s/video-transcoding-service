@@ -8,16 +8,19 @@ export function FolderCard({
   path,
   view = "grid",
   onOpen,
+  onContextMenu,
 }: {
   name: string;
   path: string;
   view?: "grid" | "list";
   onOpen: (path: string) => void;
+  onContextMenu?: (e: React.MouseEvent, path: string, name: string) => void;
 }) {
   if (view === "list") {
     return (
       <button
         onClick={() => onOpen(path)}
+        onContextMenu={(e) => onContextMenu?.(e, path, name)}
         className="group flex items-center gap-4 rounded-xl border border-border bg-surface p-3 text-left transition-colors hover:border-faint"
       >
         <div className="flex h-12 w-24 shrink-0 items-center justify-center rounded-lg border border-border bg-surface-2 sm:w-32">
@@ -32,6 +35,7 @@ export function FolderCard({
   return (
     <button
       onClick={() => onOpen(path)}
+      onContextMenu={(e) => onContextMenu?.(e, path, name)}
       className="group flex flex-col gap-4 rounded-2xl border border-border bg-surface p-5 text-left transition-colors hover:border-faint"
     >
       <div className="relative flex aspect-video items-center justify-center overflow-hidden rounded-xl border border-border bg-surface-2">
