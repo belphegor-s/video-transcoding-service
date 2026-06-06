@@ -98,6 +98,7 @@ Video.init(
   {
     sequelize,
     modelName: "Video",
+    timestamps: false,
   }
 );
 

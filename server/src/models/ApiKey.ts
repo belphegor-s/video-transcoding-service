@@ -42,7 +42,7 @@ ApiKey.init(
     revoked: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
     created_at: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
   },
-  { sequelize, modelName: "ApiKey" },
+  { sequelize, modelName: "ApiKey", timestamps: false },
 );
 
 export default ApiKey;
