@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Check, Copy, KeyRound, Loader2, Plus, RefreshCw, ShieldAlert, Trash2 } from "lucide-react";
+import { ArrowLeft, Check, Copy, KeyRound, Loader2, Pencil, Plus, RefreshCw, ShieldAlert, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import { AppHeader } from "@/components/app-header";
 import { Field } from "@/components/ui";
@@ -47,6 +47,10 @@ export default function ApiKeysPage() {
 
   const [confirm, setConfirm] = useState<{ type: "revoke" | "rotate"; key: ApiKey } | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
+
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editDraft, setEditDraft] = useState("");
+  const [savingName, setSavingName] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -100,6 +104,30 @@ export default function ApiKeysPage() {
       toast.error(e?.message ?? "Action failed");
     } finally {
       setActionLoading(false);
+    }
+  };
+
+  const startRename = (k: ApiKey) => {
+    setEditDraft(k.name);
+    setEditingId(k.api_key_id);
+  };
+
+  const saveRename = async (id: string) => {
+    const next = editDraft.trim();
+    if (!next) {
+      toast.error("Name can't be empty");
+      return;
+    }
+    setSavingName(true);
+    try {
+      await api.renameApiKey(id, next);
+      toast.success("Key renamed");
+      setEditingId(null);
+      load();
+    } catch (e: any) {
+      toast.error(e?.message ?? "Couldn't rename key");
+    } finally {
+      setSavingName(false);
     }
   };
 
@@ -209,10 +237,50 @@ export default function ApiKeysPage() {
               {keys.map((k) => (
                 <li key={k.api_key_id} className="card flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
                   <div className="min-w-0">
-                    <div className="flex items-center gap-2">
-                      <p className="truncate text-sm text-ink">{k.name}</p>
-                      <span className={cn("font-mono text-[10px] uppercase tracking-label", statusClasses(k.status))}>· {k.status}</span>
-                    </div>
+                    {editingId === k.api_key_id ? (
+                      <div className="flex items-center gap-1.5">
+                        <input
+                          autoFocus
+                          value={editDraft}
+                          maxLength={100}
+                          onChange={(e) => setEditDraft(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") saveRename(k.api_key_id);
+                            if (e.key === "Escape") setEditingId(null);
+                          }}
+                          className="min-w-0 flex-1 rounded-md border border-border bg-bg px-2 py-1 text-sm text-ink outline-none focus:border-accent/60"
+                        />
+                        <button
+                          onClick={() => saveRename(k.api_key_id)}
+                          disabled={savingName}
+                          className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-border text-muted hover:text-ink disabled:opacity-50"
+                          aria-label="Save name"
+                        >
+                          {savingName ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5 text-ok" />}
+                        </button>
+                        <button
+                          onClick={() => setEditingId(null)}
+                          className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-border text-muted hover:text-ink"
+                          aria-label="Cancel rename"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        <p className="truncate text-sm text-ink">{k.name}</p>
+                        {!k.revoked && (
+                          <button
+                            onClick={() => startRename(k)}
+                            className="shrink-0 text-faint transition-colors hover:text-ink"
+                            aria-label="Rename key"
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                          </button>
+                        )}
+                        <span className={cn("font-mono text-[10px] uppercase tracking-label", statusClasses(k.status))}>· {k.status}</span>
+                      </div>
+                    )}
                     <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 font-mono text-[11px] text-faint">
                       <code className="text-muted">{k.key_prefix}••••••••</code>
                       <span>created {fmtDate(k.created_at)}</span>

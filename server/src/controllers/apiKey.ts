@@ -105,6 +105,23 @@ export const rotateApiKeyController = async (req: Request, res: Response) => {
   }
 };
 
+const renameApiKeySchema = z.object({ name: z.string().trim().min(1, "Name is required").max(100, "Name too long") });
+
+export const renameApiKeyController = async (req: Request, res: Response) => {
+  try {
+    const { name } = renameApiKeySchema.parse(req.body);
+    // @ts-ignore
+    const record = await ApiKey.findOne({ where: { api_key_id: req.params.id, user_id: req.userId } });
+    if (!record) return res.status(404).json({ error: { message: "API key not found" } });
+    await record.update({ name });
+    return res.json({ data: present(record) });
+  } catch (e: any) {
+    if (e instanceof z.ZodError) return res.status(400).json({ error: { message: e.errors.map((x) => x.message).join("; ") } });
+    console.error("renameApiKeyController ->", e);
+    return res.status(500).json({ error: { message: e?.message ?? "Internal server error!" } });
+  }
+};
+
 export const revokeApiKeyController = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
