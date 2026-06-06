@@ -65,14 +65,23 @@ export default function DashboardPage() {
   useEffect(() => {
     const v = localStorage.getItem("vt_view");
     if (v === "grid" || v === "list") setView(v);
-    const f = new URLSearchParams(window.location.search).get("folder");
+    const params = new URLSearchParams(window.location.search);
+    const f = params.get("folder");
     if (f) setFolder(f);
+    const query = params.get("q");
+    if (query) {
+      setQ(query);
+      setDebouncedQ(query.trim());
+    }
   }, []);
-  // keep the current folder in the URL so a refresh stays in place
+  // keep the current folder + search in the URL so a refresh stays in place
   useEffect(() => {
-    const url = folder ? `${window.location.pathname}?folder=${encodeURIComponent(folder)}` : window.location.pathname;
-    window.history.replaceState(null, "", url);
-  }, [folder]);
+    const params = new URLSearchParams();
+    if (folder) params.set("folder", folder);
+    if (debouncedQ) params.set("q", debouncedQ);
+    const qs = params.toString();
+    window.history.replaceState(null, "", qs ? `${window.location.pathname}?${qs}` : window.location.pathname);
+  }, [folder, debouncedQ]);
   const changeView = (v: "grid" | "list") => {
     setView(v);
     localStorage.setItem("vt_view", v);
@@ -396,9 +405,19 @@ export default function DashboardPage() {
               <input
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
+                onKeyDown={(e) => e.key === "Escape" && setQ("")}
                 placeholder="Search videos…"
-                className="w-full rounded-xl border border-border bg-surface py-2.5 pl-9 pr-3 text-sm text-ink outline-none transition-colors placeholder:text-faint focus:border-accent/60"
+                className="w-full rounded-xl border border-border bg-surface py-2.5 pl-9 pr-9 text-sm text-ink outline-none transition-colors placeholder:text-faint focus:border-accent/60"
               />
+              {q && (
+                <button
+                  onClick={() => setQ("")}
+                  aria-label="Clear search"
+                  className="absolute right-2.5 top-1/2 inline-flex h-5 w-5 -translate-y-1/2 items-center justify-center rounded-md text-faint transition-colors hover:text-ink"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              )}
             </div>
             <Select
               ariaLabel="Sort"
