@@ -34,15 +34,31 @@ export const metadata: Metadata = {
   description:
     "Upload once. Get adaptive HLS streams from 144p to 4K, auto-generated captions, and global CDN delivery. A production-grade transcoding pipeline.",
   keywords: ["video transcoding", "HLS", "adaptive bitrate", "AI captions", "ffmpeg", "CDN"],
-  authors: [{ name: "Ayush Sharma" }],
+  authors: [{ name: "Ayush Sharma", url: "https://ayushsharma.me" }],
+  creator: "Ayush Sharma",
+  publisher: "Ayush Sharma",
+  applicationName: "Transcoder",
+  category: "technology",
+  alternates: { canonical: "/" },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: { index: true, follow: true, "max-image-preview": "large", "max-snippet": -1, "max-video-preview": -1 },
+  },
   openGraph: {
     title: "Transcoder: adaptive video pipeline with AI captions",
     description: "Adaptive HLS from 144p to 4K, AI captions, global CDN. Upload once.",
     url: siteUrl,
     siteName: "Transcoder",
+    locale: "en_US",
     type: "website",
   },
-  twitter: { card: "summary_large_image" },
+  twitter: {
+    card: "summary_large_image",
+    title: "Transcoder: adaptive video pipeline with AI captions",
+    description: "Adaptive HLS from 144p to 4K, AI captions, global CDN. Upload once.",
+    creator: "@ayushsharma",
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
