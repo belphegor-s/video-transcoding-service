@@ -57,7 +57,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "Transcoder: adaptive video pipeline with AI captions",
     description: "Adaptive HLS from 144p to 4K, AI captions, global CDN. Upload once.",
-    creator: "@ayushsharma",
+    creator: "@sharma_0502",
   },
 };
 
