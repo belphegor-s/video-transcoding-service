@@ -49,11 +49,11 @@ export default function DocsPage() {
       <header className="sticky top-0 z-50 border-b border-border bg-bg/80 backdrop-blur-xl">
         <div className="shell flex h-16 items-center justify-between">
           <Logo />
-          <nav className="flex items-center gap-6 font-mono text-xs text-muted">
-            <Link href="/" className="transition-colors hover:text-ink">
+          <nav className="flex items-center gap-4 font-mono text-xs text-muted sm:gap-6">
+            <Link href="/" className="hidden transition-colors hover:text-ink sm:inline">
               Home
             </Link>
-            <Link href="/dashboard/api-keys" className="transition-colors hover:text-ink">
+            <Link href="/dashboard/api-keys" className="hidden transition-colors hover:text-ink sm:inline">
               API keys
             </Link>
             <Link href="/dashboard" className="btn-primary">

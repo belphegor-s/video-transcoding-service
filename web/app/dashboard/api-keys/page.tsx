@@ -45,7 +45,7 @@ export default function ApiKeysPage() {
   const [revealKey, setRevealKey] = useState<{ key: string; rotated: boolean } | null>(null);
   const [copied, setCopied] = useState(false);
 
-  const [confirm, setConfirm] = useState<{ type: "revoke" | "rotate"; key: ApiKey } | null>(null);
+  const [confirm, setConfirm] = useState<{ type: "delete" | "rotate"; key: ApiKey } | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
 
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -90,9 +90,9 @@ export default function ApiKeysPage() {
     if (!confirm) return;
     setActionLoading(true);
     try {
-      if (confirm.type === "revoke") {
-        await api.revokeApiKey(confirm.key.api_key_id);
-        toast.success("Key revoked");
+      if (confirm.type === "delete") {
+        await api.deleteApiKey(confirm.key.api_key_id);
+        toast.success("Key deleted");
       } else {
         const rotated = await api.rotateApiKey(confirm.key.api_key_id);
         setRevealKey({ key: rotated.key, rotated: true });
@@ -298,11 +298,11 @@ export default function ApiKeysPage() {
                         Rotate
                       </button>
                       <button
-                        onClick={() => setConfirm({ type: "revoke", key: k })}
+                        onClick={() => setConfirm({ type: "delete", key: k })}
                         className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 font-mono text-[11px] text-muted transition-colors hover:border-danger/50 hover:text-danger"
                       >
                         <Trash2 className="h-3.5 w-3.5" />
-                        Revoke
+                        Delete
                       </button>
                     </div>
                   )}
@@ -319,14 +319,14 @@ export default function ApiKeysPage() {
         onClose={() => setConfirm(null)}
         onConfirm={runConfirm}
         loading={actionLoading}
-        destructive={confirm?.type === "revoke"}
-        confirmLabel={confirm?.type === "revoke" ? "Revoke key" : "Rotate key"}
-        title={confirm?.type === "revoke" ? "Revoke API key?" : "Rotate API key?"}
+        destructive={confirm?.type === "delete"}
+        confirmLabel={confirm?.type === "delete" ? "Delete key" : "Rotate key"}
+        title={confirm?.type === "delete" ? "Delete API key?" : "Rotate API key?"}
         description={
-          confirm?.type === "revoke" ? (
+          confirm?.type === "delete" ? (
             <>
-              <span className="text-ink">{confirm?.key.name}</span> will stop working immediately. Apps using it will start
-              getting 401s. This can't be undone.
+              <span className="text-ink">{confirm?.key.name}</span> will be deleted and stop working immediately. Apps using it
+              will start getting 401s. This can't be undone.
             </>
           ) : (
             <>

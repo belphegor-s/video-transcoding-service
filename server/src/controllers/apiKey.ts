@@ -122,17 +122,17 @@ export const renameApiKeyController = async (req: Request, res: Response) => {
   }
 };
 
-export const revokeApiKeyController = async (req: Request, res: Response) => {
+export const deleteApiKeyController = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     // @ts-ignore
     const record = await ApiKey.findOne({ where: { api_key_id: id, user_id: req.userId } });
     if (!record) return res.status(404).json({ error: { message: "API key not found" } });
 
-    await record.update({ revoked: true });
-    return res.json({ data: present(record) });
+    await record.destroy();
+    return res.json({ data: { api_key_id: id } });
   } catch (e: any) {
-    console.error("revokeApiKeyController ->", e);
+    console.error("deleteApiKeyController ->", e);
     return res.status(500).json({ error: { message: e?.message ?? "Internal server error!" } });
   }
 };

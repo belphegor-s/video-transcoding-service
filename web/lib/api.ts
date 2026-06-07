@@ -246,7 +246,7 @@ export const api = {
 
   rotateApiKey: (id: string) => request<CreatedApiKey>(`/api-keys/${id}/rotate`, { method: "POST", auth: true }),
 
-  revokeApiKey: (id: string) => request<ApiKey>(`/api-keys/${id}`, { method: "DELETE", auth: true }),
+  deleteApiKey: (id: string) => request<{ api_key_id: string }>(`/api-keys/${id}`, { method: "DELETE", auth: true }),
 
   renameApiKey: (id: string, name: string) => request<ApiKey>(`/api-keys/${id}`, { method: "PATCH", auth: true, body: { name } }),
 };
