@@ -69,11 +69,7 @@ export default function DocsPage() {
           <nav className="sticky top-24 space-y-1">
             <p className="eyebrow mb-4">API reference</p>
             {SECTIONS.map((s) => (
-              <a
-                key={s.id}
-                href={`#${s.id}`}
-                className="block rounded-lg px-3 py-1.5 font-mono text-[13px] text-muted transition-colors hover:bg-surface hover:text-ink"
-              >
+              <a key={s.id} href={`#${s.id}`} className="block rounded-lg px-3 py-1.5 font-mono text-[13px] text-muted transition-colors hover:bg-surface hover:text-ink">
                 {s.label}
               </a>
             ))}
@@ -88,8 +84,7 @@ export default function DocsPage() {
               The <span className="accent-line">Transcoder</span> API
             </h1>
             <p className="text-lg leading-relaxed text-muted">
-              Upload source files, get adaptive HLS, captions, thumbnails and downloadable MP4s, all
-              programmatically. Everything the dashboard does is available over a simple REST API.
+              Upload source files, get adaptive HLS, captions, thumbnails and downloadable MP4s, all programmatically. Everything the dashboard does is available over a simple REST API.
             </p>
             <div className="space-y-2">
               <p className="eyebrow">Base URL</p>
@@ -100,8 +95,7 @@ export default function DocsPage() {
           <section className="space-y-5">
             <H id="introduction">Introduction</H>
             <p className="leading-relaxed text-muted">
-              The API is JSON over HTTPS. Successful responses are wrapped in a <Code>data</Code> field;
-              errors in an <Code>error</Code> field. All timestamps are ISO-8601. You authenticate with an
+              The API is JSON over HTTPS. Successful responses are wrapped in a <Code>data</Code> field; errors in an <Code>error</Code> field. All timestamps are ISO-8601. You authenticate with an
               API key created from your dashboard.
             </p>
             <CodeBlock label="response envelope" lang="javascript" code={`// success\n{ "data": { /* ... */ } }\n\n// error\n{ "error": { "message": "Human-readable reason" } }`} />
@@ -114,18 +108,14 @@ export default function DocsPage() {
               <Link href="/dashboard/api-keys" className="text-accent hover:underline">
                 Dashboard → API keys
               </Link>
-              . A key is shown <strong className="text-ink">once</strong> on creation, so store it securely.
-              You can set an expiry and revoke keys at any time.
+              . A key is shown <strong className="text-ink">once</strong> on creation, so store it securely. You can set an expiry and delete keys at any time.
             </p>
             <p className="leading-relaxed text-muted">Send your key as a header, either way works:</p>
             <CodeBlock
               label="bash"
               code={`# preferred\ncurl ${BASE}/video/user-videos \\\n  -H "x-api-key: vtk_your_key_here"\n\n# or as a bearer token\ncurl ${BASE}/video/user-videos \\\n  -H "Authorization: Bearer vtk_your_key_here"`}
             />
-            <p className="text-sm text-muted">
-              Keys inherit your account's permissions and limits. Revoking a key stops it working
-              immediately.
-            </p>
+            <p className="text-sm text-muted">Keys inherit your account's permissions and limits. Revoking a key stops it working immediately.</p>
           </section>
 
           <section className="space-y-5">
@@ -152,25 +142,18 @@ export default function DocsPage() {
 
           <section className="space-y-5">
             <H id="upload">Upload a video</H>
-            <p className="leading-relaxed text-muted">
-              Uploads go straight to object storage via a presigned POST, so bytes never pass through
-              the API. It's a two-step flow.
-            </p>
+            <p className="leading-relaxed text-muted">Uploads go straight to object storage via a presigned POST, so bytes never pass through the API. It's a two-step flow.</p>
 
             <div className="space-y-3">
               <p className="font-mono text-xs uppercase tracking-label text-faint">Step 1: request an upload URL</p>
               <Endpoint method="GET" path="/upload/upload-videos" />
               <p className="text-sm text-muted">
-                Query params: <Code>fileType</Code> (MIME, required), <Code>fileName</Code> (original name,
-                optional but recommended).
+                Query params: <Code>fileType</Code> (MIME, required), <Code>fileName</Code> (original name, optional but recommended).
               </p>
-              <CodeBlock
-                label="bash"
-                code={`curl "${BASE}/upload/upload-videos?fileType=video/mp4&fileName=clip.mp4" \\\n  -H "x-api-key: $API_KEY"`}
-              />
+              <CodeBlock label="bash" code={`curl "${BASE}/upload/upload-videos?fileType=video/mp4&fileName=clip.mp4" \\\n  -H "x-api-key: $API_KEY"`} />
               <CodeBlock
                 label="response"
-              lang="json"
+                lang="json"
                 code={`{\n  "data": {\n    "url": "https://<bucket>.s3.<region>.amazonaws.com",\n    "fields": {\n      "Content-Type": "video/mp4",\n      "x-amz-meta-userId": "...",\n      "bucket": "...",\n      "X-Amz-Algorithm": "...",\n      "X-Amz-Credential": "...",\n      "X-Amz-Date": "...",\n      "key": "uploads/<userId>/video-<uuid>",\n      "Policy": "...",\n      "X-Amz-Signature": "..."\n    }\n  }\n}`}
               />
             </div>
@@ -178,16 +161,13 @@ export default function DocsPage() {
             <div className="space-y-3">
               <p className="font-mono text-xs uppercase tracking-label text-faint">Step 2: POST the file to storage</p>
               <p className="text-sm text-muted">
-                Send a multipart form to <Code>url</Code> with every returned <Code>field</Code>, then the
-                file <strong className="text-ink">last</strong>. A <Code>204</Code> means success.
+                Send a multipart form to <Code>url</Code> with every returned <Code>field</Code>, then the file <strong className="text-ink">last</strong>. A <Code>204</Code> means success.
               </p>
               <CodeBlock
                 label="bash"
                 code={`# echo each field from the response as -F flags, file last\ncurl -X POST "$UPLOAD_URL" \\\n  -F key="$KEY" \\\n  -F Content-Type="video/mp4" \\\n  -F x-amz-meta-userId="$USER_ID" \\\n  -F X-Amz-Algorithm="$ALG" \\\n  -F X-Amz-Credential="$CRED" \\\n  -F X-Amz-Date="$DATE" \\\n  -F Policy="$POLICY" \\\n  -F X-Amz-Signature="$SIG" \\\n  -F file=@clip.mp4`}
               />
-              <p className="text-sm text-muted">
-                Once uploaded, transcoding starts automatically. Poll the video's status (next sections).
-              </p>
+              <p className="text-sm text-muted">Once uploaded, transcoding starts automatically. Poll the video's status (next sections).</p>
             </div>
           </section>
 
@@ -217,9 +197,7 @@ export default function DocsPage() {
           <section className="space-y-5">
             <H id="thumbnail">Thumbnails</H>
             <Endpoint method="GET" path="/video/thumbnail?video_id=" />
-            <p className="leading-relaxed text-muted">
-              Returns a short-lived signed image URL. The first call generates and caches it.
-            </p>
+            <p className="leading-relaxed text-muted">Returns a short-lived signed image URL. The first call generates and caches it.</p>
             <CodeBlock label="bash" code={`curl "${BASE}/video/thumbnail?video_id=$ID" -H "x-api-key: $API_KEY"\n# { "data": { "url": "https://<cdn>/.../thumbnail.jpg?Expires=..." } }`} />
           </section>
 
@@ -227,8 +205,7 @@ export default function DocsPage() {
             <H id="transcription">Transcription</H>
             <Endpoint method="GET" path="/video/transcription?video_id=" />
             <p className="leading-relaxed text-muted">
-              Captions are generated automatically. If no speech was detected, <Code>available</Code> is{" "}
-              <Code>false</Code>.
+              Captions are generated automatically. If no speech was detected, <Code>available</Code> is <Code>false</Code>.
             </p>
             <CodeBlock
               label="response"
@@ -240,8 +217,7 @@ export default function DocsPage() {
           <section className="space-y-5">
             <H id="download">Downloads</H>
             <p className="leading-relaxed text-muted">
-              Get a per-quality MP4 (remuxed on demand) or a zip of all qualities. First mint a short-lived
-              download token, then hit the download endpoint with it.
+              Get a per-quality MP4 (remuxed on demand) or a zip of all qualities. First mint a short-lived download token, then hit the download endpoint with it.
             </p>
             <Endpoint method="GET" path="/video/download-token?video_id=" />
             <Endpoint method="GET" path="/download/video?video_id=&quality=&token=" />
@@ -251,8 +227,7 @@ export default function DocsPage() {
               code={`# 1) mint a token (valid ~10 min)\nTOKEN=$(curl -s "${BASE}/video/download-token?video_id=$ID" \\\n  -H "x-api-key: $API_KEY" | jq -r .data.token)\n\n# 2) download a single quality as MP4\ncurl -L "${BASE}/download/video?video_id=$ID&quality=1080p&token=$TOKEN" -o clip-1080p.mp4\n\n# 3) or all qualities as a zip\ncurl -L "${BASE}/download/all?video_id=$ID&token=$TOKEN" -o clip-all.zip`}
             />
             <p className="text-sm text-muted">
-              Valid <Code>quality</Code> values are the video's rendition heights, e.g. <Code>2160p</Code>,{" "}
-              <Code>1080p</Code>, <Code>720p</Code>, <Code>360p</Code>.
+              Valid <Code>quality</Code> values are the video's rendition heights, e.g. <Code>2160p</Code>, <Code>1080p</Code>, <Code>720p</Code>, <Code>360p</Code>.
             </p>
           </section>
 

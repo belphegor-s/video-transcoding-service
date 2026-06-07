@@ -140,3 +140,9 @@ body::before {
     height: 1px;
   }
 }
+
+/* Video poster: letterbox the thumbnail so it keeps its aspect ratio and fits
+   inside the player, instead of Vidstack's default cover (which crops/fills). */
+.vds-poster img {
+  object-fit: contain !important;
+}

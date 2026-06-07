@@ -34,15 +34,17 @@ export function renderOgImage() {
           >
             <div style={{ width: "22px", height: "22px", borderRadius: "6px", background: "#cdfb46" }} />
           </div>
-          <div style={{ fontSize: "30px", color: "#ededec", letterSpacing: "-0.02em" }}>
-            transcoder<span style={{ color: "#cdfb46" }}>.</span>
+          <div style={{ display: "flex", fontSize: "30px", color: "#ededec", letterSpacing: "-0.02em" }}>
+            <span>transcoder</span>
+            <span style={{ color: "#cdfb46" }}>.</span>
           </div>
         </div>
 
         {/* headline */}
         <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
-          <div style={{ fontSize: "68px", color: "#ededec", lineHeight: 1.05, letterSpacing: "-0.03em", maxWidth: "900px" }}>
-            Adaptive video pipeline with <span style={{ color: "#cdfb46" }}>AI captions</span>
+          <div style={{ display: "flex", flexWrap: "wrap", columnGap: "18px", fontSize: "68px", lineHeight: 1.05, letterSpacing: "-0.03em", maxWidth: "920px" }}>
+            <span style={{ color: "#ededec" }}>Adaptive video pipeline with</span>
+            <span style={{ color: "#cdfb46" }}>AI captions</span>
           </div>
           <div style={{ fontSize: "30px", color: "#9a9a9f", lineHeight: 1.3, maxWidth: "880px" }}>
             Upload once. Adaptive HLS from 144p to 4K, auto captions, global CDN delivery.
