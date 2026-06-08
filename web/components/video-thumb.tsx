@@ -38,7 +38,7 @@ export function VideoThumb({ videoId, ready, showPlay = false }: { videoId: stri
           src={url}
           alt=""
           onError={() => setFailed(true)}
-          className="absolute inset-0 h-full w-full object-cover"
+          className="absolute inset-0 h-full w-full object-contain"
         />
       ) : (
         <Clapperboard className={cn("relative h-8 w-8 text-faint", ready && !failed && "animate-pulse")} strokeWidth={1.5} />

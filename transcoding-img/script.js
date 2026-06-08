@@ -235,11 +235,14 @@ const transcodeToHLS = async (localFilePath, outputKeyPrefix, outputResolution) 
     const outputDir = `/tmp/hls_${outputResolution}_${Date.now()}`;
     fs.ensureDirSync(outputDir);
 
+    const [targetW, targetH] = outputResolution.split("x");
+    const scaleFilter = `scale=${targetW}:${targetH}:force_original_aspect_ratio=decrease,pad=${targetW}:${targetH}:(ow-iw)/2:(oh-ih)/2:color=black,setsar=1`;
+
     // Optimize ffmpeg settings for faster transcoding
     const ffmpegCommand = ffmpeg(localFilePath)
       .outputOptions([
         "-preset ultrafast", // Fastest preset for ECS Fargate
-        `-vf scale=${outputResolution}`,
+        `-vf ${scaleFilter}`,
         "-profile:v baseline",
         "-level 3.0",
         "-start_number 0",

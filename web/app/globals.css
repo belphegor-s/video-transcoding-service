@@ -141,8 +141,11 @@ body::before {
   }
 }
 
-/* Video poster: letterbox the thumbnail so it keeps its aspect ratio and fits
-   inside the player, instead of Vidstack's default cover (which crops/fills). */
-.vds-poster img {
+/* Player: keep the actual video and its poster at their true aspect ratio,
+   letterboxed inside the 16:9 stage instead of cropping/stretching to fill. */
+[data-media-provider] video,
+.vds-poster img,
+media-poster img {
   object-fit: contain !important;
+  object-position: center !important;
 }
