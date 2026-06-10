@@ -20,6 +20,17 @@ export const tokens = {
   },
 };
 
+/** True if a URL targets our own API (vs a signed CDN URL). Used to decide
+ *  whether to attach the auth header on hls.js segment/playlist requests. */
+export function isApiUrl(u: string): boolean {
+  try {
+    const apiOrigin = new URL(BASE, typeof window !== "undefined" ? window.location.href : "http://localhost").origin;
+    return new URL(u, typeof window !== "undefined" ? window.location.href : "http://localhost").origin === apiOrigin;
+  } catch {
+    return false;
+  }
+}
+
 export class ApiError extends Error {
   status: number;
   constructor(message: string, status: number) {

@@ -66,7 +66,23 @@ export async function streamHls(
 
       if (line && !line.startsWith("#")) {
         const absPath = url.resolve(playlistBasePath, line);
-        rewrittenLines.push(`${protocol}://${host}${opts.proxyPath}?video_id=${video.video_id}&path=${encodeURIComponent(absPath)}`);
+        const childExt = path.extname(absPath).toLowerCase();
+
+        if (childExt === ".m3u8") {
+          // Variant playlist: keep it on our proxy so we can sign *its* segment
+          // URLs in turn (it's tiny text, so proxying is cheap).
+          rewrittenLines.push(
+            `${protocol}://${host}${opts.proxyPath}?video_id=${video.video_id}&path=${encodeURIComponent(absPath)}`,
+          );
+        } else {
+          // Media segment (.ts): point straight at a signed CloudFront URL so the
+          // browser pulls bytes from the CDN edge (parallel, cached, full
+          // bandwidth) instead of relaying every byte through this server. The
+          // signed URL is the capability; auth was already enforced when this
+          // (authed) playlist was fetched. Requires CORS on the CloudFront
+          // distribution so hls.js can read the cross-origin response.
+          rewrittenLines.push(getSignedCloudFrontUrl(absPath, 12, 6));
+        }
         continue;
       }
 

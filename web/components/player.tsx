@@ -6,7 +6,7 @@ import "@vidstack/react/player/styles/default/layouts/video.css";
 
 import { MediaPlayer, MediaProvider, Poster, Track, isHLSProvider, type MediaProviderAdapter } from "@vidstack/react";
 import { defaultLayoutIcons, DefaultVideoLayout } from "@vidstack/react/player/layouts/default";
-import { api, captionVttUrl, tokens } from "@/lib/api";
+import { api, captionVttUrl, isApiUrl, tokens } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
 interface BlobTrack {
@@ -75,11 +75,15 @@ export function VideoPlayer({
         // playback begins instantly, then ABR upshifts. Without this hls.js can
         // pick a high rendition first and stall on a big initial segment.
         startLevel: 0,
-        // Keep the startup buffer small so the player plays as soon as the first
-        // segment lands instead of pre-buffering a chunk of the video.
-        maxBufferLength: 10,
-        xhrSetup(xhr) {
-          if (authed) {
+        // Small startup buffer for instant playback, but let a fast connection
+        // race ahead so high-bitrate (4k/1440p) playback doesn't rebuffer.
+        maxBufferLength: 30,
+        maxMaxBufferLength: 120,
+        xhrSetup(xhr: XMLHttpRequest, url: string) {
+          // Only our own API (the playlists) is auth-gated. Segments now load
+          // straight from signed CloudFront URLs; attaching a header there would
+          // trigger a CORS preflight and defeat edge caching.
+          if (authed && isApiUrl(url)) {
             const t = tokens.access();
             if (t) xhr.setRequestHeader("Authorization", `Bearer ${t}`);
           }
