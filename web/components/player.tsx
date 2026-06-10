@@ -71,10 +71,13 @@ export function VideoPlayer({
     if (isHLSProvider(provider)) {
       provider.library = () => import("hls.js");
       provider.config = {
-        // Start on the lowest rendition so the very first segment is tiny and
-        // playback begins instantly, then ABR upshifts. Without this hls.js can
-        // pick a high rendition first and stall on a big initial segment.
-        startLevel: 0,
+        // Let ABR choose the opening rendition (-1) instead of pinning the
+        // lowest. A generous default bandwidth estimate means a fast connection
+        // starts at a high rendition immediately and only downshifts if the
+        // measured throughput can't sustain it. Pinning level 0 (the old value)
+        // made every viewer start at the worst quality and crawl up.
+        startLevel: -1,
+        abrEwmaDefaultEstimate: 5_000_000, // 5 Mbps cold-start assumption
         // Small startup buffer for instant playback, but let a fast connection
         // race ahead so high-bitrate (4k/1440p) playback doesn't rebuffer.
         maxBufferLength: 30,
