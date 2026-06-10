@@ -149,8 +149,7 @@ export function FolderTree({
           )}
         >
           <Home className="h-4 w-4 shrink-0 text-faint" />
-          No folder
-          <span className="ml-auto font-mono text-[10px] text-faint">uncategorized</span>
+          Root
         </button>
 
         {tree.length > 0 && <div className="mt-1">{renderNodes(tree, 0)}</div>}
