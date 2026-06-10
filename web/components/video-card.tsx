@@ -1,7 +1,8 @@
 "use client";
 
 import { Check, Folder, Globe, Layers } from "lucide-react";
-import { StatusBadge } from "./status-badge";
+import { StatusBadge, isInFlight } from "./status-badge";
+import { RenditionProgress } from "./rendition-progress";
 import { VideoThumb } from "./video-thumb";
 import { timeAgo, cn } from "@/lib/utils";
 import type { Video } from "@/lib/types";
@@ -142,6 +143,8 @@ export function VideoCard({
           </span>
         )}
       </div>
+
+      {video.status === "transcoding" && <RenditionProgress videoId={video.video_id} />}
     </div>
   );
 }

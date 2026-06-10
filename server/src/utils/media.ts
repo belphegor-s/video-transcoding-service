@@ -49,6 +49,7 @@ export interface Quality {
   label: string; // e.g. "1080p"
   width: number;
   height: number;
+  p: number; // short edge (the "p" number), orientation-independent
   key: string; // rendition index.m3u8 key
 }
 
@@ -60,10 +61,12 @@ export function parseQualities(video: Video): Quality[] {
       if (!m) return null;
       const width = Number(m[1]);
       const height = Number(m[2]);
-      return { label: `${height}p`, width, height, key };
+      // Label by the short edge so portrait renditions read "1080p", not "1920p".
+      const p = Math.min(width, height);
+      return { label: `${p}p`, width, height, p, key };
     })
     .filter((q): q is Quality => q !== null)
-    .sort((a, b) => b.height - a.height);
+    .sort((a, b) => b.p - a.p);
 }
 
 /* -------------------------------- ffmpeg ---------------------------------- */
@@ -146,7 +149,7 @@ export async function getOrCreateThumbnail(video: Video): Promise<string> {
   if (qualities.length === 0) throw new Error("No renditions to thumbnail");
   // Prefer the sharpest rendition <= 720p (good quality, modest segment size),
   // else fall back to the lowest available.
-  const rendition = qualities.find((q) => q.height <= 720) ?? qualities[qualities.length - 1];
+  const rendition = qualities.find((q) => q.p <= 720) ?? qualities[qualities.length - 1];
 
   const dir = tmpDir();
   try {

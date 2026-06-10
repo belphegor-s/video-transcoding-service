@@ -9,6 +9,7 @@ import {
   moveVideosController,
   renameFolderController,
   renameVideoController,
+  renditionProgressController,
   setFolderController,
   setVisibilityController,
   streamVideoController,
@@ -23,6 +24,7 @@ const router = Router();
 router.get("/user-videos", userVideosController);
 router.get("/user-video", userVideoController);
 router.get("/by-id", videoByIdController);
+router.get("/progress", renditionProgressController);
 router.get("/folders", foldersController);
 router.post("/folders", createFolderController);
 router.patch("/folders/rename", renameFolderController);

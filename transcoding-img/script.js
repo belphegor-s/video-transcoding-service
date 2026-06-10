@@ -228,15 +228,18 @@ const processCaptions = async (localFilePath, baseOutputKeyPrefix) => {
   }
 };
 
-const transcodeToHLS = async (localFilePath, outputKeyPrefix, outputResolution) => {
+const transcodeToHLS = async (localFilePath, outputKeyPrefix, targetW, targetH, label, onProgress) => {
   return new Promise((resolve, reject) => {
-    console.info(`Transcoding to HLS ${localFilePath} for resolution: ${outputResolution}...`);
+    console.info(`Transcoding to HLS ${localFilePath} for resolution: ${label}...`);
 
-    const outputDir = `/tmp/hls_${outputResolution}_${Date.now()}`;
+    const outputDir = `/tmp/hls_${label}_${Date.now()}`;
     fs.ensureDirSync(outputDir);
 
-    const [targetW, targetH] = outputResolution.split("x");
-    const scaleFilter = `scale=${targetW}:${targetH}:force_original_aspect_ratio=decrease,pad=${targetW}:${targetH}:(ow-iw)/2:(oh-ih)/2:color=black,setsar=1`;
+    // Aspect-preserving downscale, no padding. `force_original_aspect_ratio=decrease`
+    // guarantees we never distort (and never upscale past the target box) even if
+    // the source orientation was guessed wrong; `force_divisible_by=2` keeps dims
+    // even for yuv420p. Lanczos gives noticeably sharper output than the default.
+    const scaleFilter = `scale=${targetW}:${targetH}:force_original_aspect_ratio=decrease:force_divisible_by=2:flags=lanczos,setsar=1`;
 
     // Optimize ffmpeg settings for faster transcoding
     const ffmpegCommand = ffmpeg(localFilePath)
@@ -257,10 +260,12 @@ const transcodeToHLS = async (localFilePath, outputKeyPrefix, outputResolution) 
 
     ffmpegCommand
       .on("progress", (progress) => {
-        console.info(`${outputResolution}: ${Math.round(progress.percent || 0)}% complete`);
+        const pct = Math.round(progress.percent || 0);
+        console.info(`${label}: ${pct}% complete`);
+        if (onProgress) onProgress(pct);
       })
       .on("end", async () => {
-        console.info(`HLS transcoding done for resolution: ${outputResolution}`);
+        console.info(`HLS transcoding done for resolution: ${label}`);
 
         try {
           const files = await fs.readdir(outputDir);
@@ -338,14 +343,28 @@ const getVideoResolution = (localFilePath, inputKey) => {
     ffmpeg.ffprobe(localFilePath, (err, metadata) => {
       if (err) {
         reject(new Error(`Error probing video ${inputKey}: ${err.message}`));
-      } else {
-        const videoStream = metadata.streams.find((s) => s.codec_type === "video");
-        if (videoStream && videoStream.width && videoStream.height) {
-          resolve({ width: videoStream.width, height: videoStream.height });
-        } else {
-          reject(new Error(`Video resolution not found in metadata for ${inputKey}`));
-        }
+        return;
       }
+      const videoStream = metadata.streams.find((s) => s.codec_type === "video");
+      if (!videoStream || !videoStream.width || !videoStream.height) {
+        reject(new Error(`Video resolution not found in metadata for ${inputKey}`));
+        return;
+      }
+
+      // Phones (esp. iPhone) record sensor-landscape pixels plus a rotation tag;
+      // ffprobe reports the *coded* width/height, which ignores that rotation.
+      // Read the rotation from every place ffmpeg may expose it so we can derive
+      // the true display orientation. Without this, a portrait HD clip looks like
+      // a low-res landscape one and the resolution ladder is built wrong.
+      let rotation = 0;
+      if (videoStream.rotation != null) rotation = parseInt(videoStream.rotation, 10) || 0;
+      else if (videoStream.tags && videoStream.tags.rotate != null) rotation = parseInt(videoStream.tags.rotate, 10) || 0;
+      if (Array.isArray(videoStream.side_data_list)) {
+        const sd = videoStream.side_data_list.find((d) => d && d.rotation != null);
+        if (sd) rotation = parseInt(sd.rotation, 10) || rotation;
+      }
+
+      resolve({ width: videoStream.width, height: videoStream.height, rotation });
     });
   });
 };
@@ -425,20 +444,60 @@ const safeRedisOperation = async (operation) => {
   }
 };
 
+// Publish per-rendition progress to Redis so the dashboard can show granular
+// status while transcoding runs. Keyed by the source s3 key (the API looks it up
+// from the video record). Best-effort: failures here never abort transcoding.
+const RENDITION_KEY = `renditions:${process.env.VIDEO_KEY}`;
+const lastReported = new Map();
+const reportRendition = async (field, value, force = false) => {
+  try {
+    if (!redisClient || !(redisClient.isOpen || redisClient.isReady)) return;
+    // Throttle noisy percent updates: only write on >=5% change or status change.
+    const prev = lastReported.get(field);
+    if (!force && prev && prev.status === value.status && Math.abs((prev.percent || 0) - (value.percent || 0)) < 5) return;
+    lastReported.set(field, value);
+    await redisClient.hSet(RENDITION_KEY, field, JSON.stringify(value));
+    await redisClient.expire(RENDITION_KEY, 3600);
+  } catch {
+    /* non-fatal */
+  }
+};
+
+// Map a target short-edge rung -> output WxH preserving the source aspect ratio
+// and orientation. iPhone front-camera HD is portrait (e.g. 1080x1920); building
+// the ladder off the *short* edge keeps "1080p" portrait at full 1080-wide rather
+// than collapsing it to 480p/360p (the old landscape-only ladder bug).
+const buildRenditions = (meta) => {
+  const rotated = Math.abs(meta.rotation % 180) === 90;
+  const dispW = rotated ? meta.height : meta.width;
+  const dispH = rotated ? meta.width : meta.height;
+  const isPortrait = dispH > dispW;
+  const shortEdge = Math.min(dispW, dispH);
+  const longEdge = Math.max(dispW, dispH);
+
+  const ladder = [2160, 1440, 1080, 720, 480, 360, 240, 144];
+  let rungs = ladder.filter((p) => p <= shortEdge);
+  if (rungs.length === 0) rungs = [Math.max(2, Math.floor(shortEdge / 2) * 2)]; // tiny source: one native rung
+
+  return rungs.map((p) => {
+    let longT = Math.round(longEdge * (p / shortEdge));
+    if (longT % 2 !== 0) longT += 1;
+    const w = isPortrait ? p : longT;
+    const h = isPortrait ? longT : p;
+    return { p, w, h, label: `${w}x${h}` };
+  });
+};
+
 const transcodeAndUploadObject = async (inputKey) => {
   try {
     const localFilePath = await downloadObjectFromS3(inputKey);
-    const resolutions = ["3840x2160", "2560x1440", "1920x1080", "1280x720", "854x480", "640x360", "426x240", "256x144"];
     const originalResolution = await getVideoResolution(localFilePath, inputKey);
 
     console.info("Original resolution:", originalResolution);
 
-    const applicableResolutions = resolutions.filter((res) => {
-      const [w, h] = res.split("x").map(Number);
-      return w <= originalResolution.width && h <= originalResolution.height;
-    });
+    const renditions = buildRenditions(originalResolution);
 
-    console.info("Applicable resolutions:", applicableResolutions);
+    console.info("Applicable renditions:", renditions.map((r) => r.label));
 
     // Initialize connections with retry logic
     dbClient = createDbClient();
@@ -456,18 +515,29 @@ const transcodeAndUploadObject = async (inputKey) => {
 
     const baseOutputKeyPrefix = `${process.env.USER_ID}/${path.basename(inputKey, path.extname(inputKey))}`;
 
+    // Seed per-rendition status as "pending" so the dashboard shows the full
+    // ladder immediately, then fills each bar as it transcodes.
+    for (const r of renditions) {
+      await reportRendition(r.label, { label: r.label, width: r.w, height: r.h, p: r.p, status: "pending", percent: 0 }, true);
+    }
+    await reportRendition("captions", { label: "captions", status: "processing", percent: 0 }, true);
+
     // Process captions in parallel with transcoding preparation
     const captionPromise = processCaptions(localFilePath, baseOutputKeyPrefix);
 
     // Parallel transcoding with worker threads (limit concurrent workers to avoid memory issues)
-    const maxConcurrentWorkers = Math.min(numCPUs, applicableResolutions.length, 4);
+    const maxConcurrentWorkers = Math.min(numCPUs, renditions.length, 4);
     const hlsPlaylistUrls = [];
 
-    for (let i = 0; i < applicableResolutions.length; i += maxConcurrentWorkers) {
-      const batch = applicableResolutions.slice(i, i + maxConcurrentWorkers);
-      const batchPromises = batch.map(async (res) => {
-        const outputKeyPrefix = `${baseOutputKeyPrefix}/${res}_hls`;
-        return await transcodeToHLS(localFilePath, outputKeyPrefix, res);
+    for (let i = 0; i < renditions.length; i += maxConcurrentWorkers) {
+      const batch = renditions.slice(i, i + maxConcurrentWorkers);
+      const batchPromises = batch.map(async (r) => {
+        const outputKeyPrefix = `${baseOutputKeyPrefix}/${r.label}_hls`;
+        const result = await transcodeToHLS(localFilePath, outputKeyPrefix, r.w, r.h, r.label, (pct) =>
+          reportRendition(r.label, { label: r.label, width: r.w, height: r.h, p: r.p, status: "processing", percent: pct }),
+        );
+        await reportRendition(r.label, { label: r.label, width: r.w, height: r.h, p: r.p, status: "done", percent: 100 }, true);
+        return result;
       });
 
       const batchResults = await Promise.all(batchPromises);
@@ -476,6 +546,11 @@ const transcodeAndUploadObject = async (inputKey) => {
 
     // Wait for captions to complete
     const captionUrls = await captionPromise;
+    await reportRendition(
+      "captions",
+      { label: "captions", status: Object.keys(captionUrls).length ? "done" : "skipped", percent: 100 },
+      true,
+    );
 
     // Generate master playlist with captions
     const masterPlaylistKey = await generateMasterPlaylist(hlsPlaylistUrls, baseOutputKeyPrefix, captionUrls);

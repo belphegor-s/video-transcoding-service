@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { api, ApiError } from "@/lib/api";
 import { MAX_FILE_BYTES } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { FolderTree } from "./folder-tree";
 
 const ALLOWED = ["video/mp4", "video/mpeg", "video/quicktime", "video/x-msvideo", "video/x-flv", "video/webm"];
 
@@ -47,9 +48,23 @@ export function UploadDialog({
   const [folder, setFolder] = useState("");
   const [folders, setFolders] = useState<string[]>([]);
 
+  const refreshFolders = useCallback(() => api.folders().then(setFolders).catch(() => {}), []);
   useEffect(() => {
-    api.folders().then(setFolders).catch(() => {});
-  }, []);
+    refreshFolders();
+  }, [refreshFolders]);
+
+  const createFolder = useCallback(
+    async (path: string) => {
+      try {
+        await api.createFolder(path);
+        await refreshFolders();
+      } catch (e: any) {
+        toast.error(e instanceof ApiError ? e.message : "Couldn't create folder");
+        throw e;
+      }
+    },
+    [refreshFolders],
+  );
 
   const pick = useCallback((f: File | null) => {
     setError(null);
@@ -156,18 +171,7 @@ export function UploadDialog({
             {!busy && phase !== "done" && (
               <div>
                 <label className="field-label">Folder (optional)</label>
-                <input
-                  list="upload-folders"
-                  value={folder}
-                  onChange={(e) => setFolder(e.target.value)}
-                  placeholder="e.g. Testimonials"
-                  className="field-input"
-                />
-                <datalist id="upload-folders">
-                  {folders.map((f) => (
-                    <option key={f} value={f} />
-                  ))}
-                </datalist>
+                <FolderTree folders={folders} value={folder} onChange={setFolder} onCreate={createFolder} />
               </div>
             )}
 

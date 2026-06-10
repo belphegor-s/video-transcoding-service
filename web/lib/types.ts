@@ -38,6 +38,16 @@ export interface Quality {
   label: string;
   height: number;
   width: number;
+  p: number; // short edge (the "p" number)
+}
+
+export interface RenditionProgress {
+  label: string;
+  width?: number;
+  height?: number;
+  p?: number;
+  status: "pending" | "processing" | "done" | "skipped";
+  percent: number;
 }
 
 export interface CaptionTrack {
@@ -52,10 +62,14 @@ export function qualitiesFromVideo(video: Pick<Video, "transcoded_urls">): Quali
     .map((key) => {
       const m = key.match(/(\d+)x(\d+)_hls/);
       if (!m) return null;
-      return { label: `${m[2]}p`, width: Number(m[1]), height: Number(m[2]) };
+      const width = Number(m[1]);
+      const height = Number(m[2]);
+      // Short edge = the "p" number, so portrait reads "1080p" not "1920p".
+      const p = Math.min(width, height);
+      return { label: `${p}p`, width, height, p };
     })
     .filter((q): q is Quality => q !== null)
-    .sort((a, b) => b.height - a.height);
+    .sort((a, b) => b.p - a.p);
 }
 
 export const LIFETIME_VIDEO_LIMIT = 5;

@@ -35,6 +35,7 @@ import jwt, { Secret } from "jsonwebtoken";
 import { streamHls } from "../utils/streamHls";
 import { getSignedCloudFrontUrl } from "../utils/getSignedCloudFrontUrl";
 import { captionTracks, fetchTranscription, getOrCreateThumbnail } from "../utils/media";
+import { getRedisClient } from "../lib/redisClient";
 import { env } from "../config/env";
 
 export const userVideosController = async (req: Request, res: Response) => {
@@ -323,6 +324,55 @@ export const thumbnailController = async (req: Request, res: Response) => {
     if (e instanceof z.ZodError) return res.status(400).json({ error: { message: "Invalid video_id" } });
     console.error("Error in thumbnailController ->", e);
     return res.status(500).json({ error: { message: "Failed to generate thumbnail" } });
+  }
+};
+
+interface RenditionProgress {
+  label: string;
+  width?: number;
+  height?: number;
+  p?: number;
+  status: "pending" | "processing" | "done" | "skipped";
+  percent: number;
+}
+
+// Live per-rendition transcoding progress, published to Redis by the worker.
+// Returns [] once the key has expired (after completion) or while still queued.
+export const renditionProgressController = async (req: Request, res: Response) => {
+  try {
+    const { video_id } = videoIdQuery.parse(req.query);
+    // @ts-ignore
+    const video = await Video.findOne({ where: { video_id, user_id: req.userId } });
+    if (!video) return res.status(404).json({ error: { message: "Video not found" } });
+
+    let renditions: RenditionProgress[] = [];
+    try {
+      const redis = await getRedisClient();
+      const raw = await redis.hGetAll(`renditions:${video.s3_key}`);
+      renditions = Object.values(raw)
+        .map((v) => {
+          try {
+            return JSON.parse(v) as RenditionProgress;
+          } catch {
+            return null;
+          }
+        })
+        .filter((r): r is RenditionProgress => r !== null)
+        // captions last, otherwise highest resolution first
+        .sort((a, b) => {
+          if (a.label === "captions") return 1;
+          if (b.label === "captions") return -1;
+          return (b.p ?? 0) - (a.p ?? 0);
+        });
+    } catch (e) {
+      console.error("renditionProgressController redis ->", e);
+    }
+
+    return res.json({ data: { status: video.status, renditions } });
+  } catch (e: any) {
+    if (e instanceof z.ZodError) return res.status(400).json({ error: { message: "Invalid video_id" } });
+    console.error("renditionProgressController ->", e);
+    return res.status(500).json({ error: { message: "Failed to load progress" } });
   }
 };
 

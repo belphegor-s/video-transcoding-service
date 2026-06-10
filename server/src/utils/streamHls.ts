@@ -1,8 +1,27 @@
 import { Request, Response } from "express";
 import url from "url";
 import path from "path";
+import { Readable } from "stream";
 import { getSignedCloudFrontUrl } from "./getSignedCloudFrontUrl";
 import type Video from "../models/Video";
+
+/**
+ * Pipe an upstream fetch() body straight to the response instead of buffering
+ * the whole payload into memory first. Buffering a 6s .ts segment added the
+ * segment's full download time before the player saw a single byte (the cause
+ * of slow/janky streaming); piping forwards bytes as they arrive.
+ */
+function pipeUpstream(res: Response, body: unknown) {
+  if (!body) return res.end();
+  const stream = Readable.fromWeb(body as Parameters<typeof Readable.fromWeb>[0]);
+  // Client went away (seek / tab close): stop pulling from the CDN.
+  res.on("close", () => stream.destroy());
+  stream.on("error", () => {
+    if (!res.headersSent) res.status(502).end();
+    else res.destroy();
+  });
+  return stream.pipe(res);
+}
 
 /**
  * Proxy an HLS resource (master/variant .m3u8 or .ts segment) for a video.
@@ -80,7 +99,7 @@ export async function streamHls(
     const contentLength = upstream.headers.get("content-length");
     if (contentLength) res.setHeader("Content-Length", contentLength);
 
-    return res.end(Buffer.from(await upstream.arrayBuffer()));
+    return pipeUpstream(res, upstream.body);
   }
 
   if (ext === ".vtt") {
@@ -89,7 +108,7 @@ export async function streamHls(
     if (!upstream.ok) return res.status(502).json({ error: "Failed to fetch captions" });
     res.setHeader("Content-Type", "text/vtt; charset=utf-8");
     res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
-    return res.end(Buffer.from(await upstream.arrayBuffer()));
+    return pipeUpstream(res, upstream.body);
   }
 
   return res.status(400).json({ error: "Unsupported resource type" });
