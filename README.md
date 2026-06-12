@@ -1,6 +1,6 @@
 ### Setup
 
-- You'll need `docker` and `nodejs` (preferably v20 LTS)
+- You'll need `docker` and `nodejs` (preferably v24 LTS)
 - Install deps. via `npm i` in `/lambdas` and `/server`
 - `.env` format -
   - _`/lambdas/.env`_
