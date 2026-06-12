@@ -3,4 +3,4 @@ Allow: /
 Disallow: /dashboard
 Disallow: /watch
 
-Sitemap: https://transcode.pixly.sh/sitemap.xml
+Sitemap: https://transcode.procd.cc/sitemap.xml

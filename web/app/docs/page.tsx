@@ -23,7 +23,7 @@ const SECTIONS = [
   { id: "errors", label: "Errors" },
 ];
 
-const BASE = "https://api.transcode.pixly.sh/api/v1";
+const BASE = "https://api.transcode.procd.cc/api/v1";
 
 function H({ id, children }: { id: string; children: React.ReactNode }) {
   return (
@@ -245,7 +245,7 @@ export default function DocsPage() {
             <CodeBlock
               label="html"
               lang="html"
-              code={`<iframe\n  src="https://transcode.pixly.sh/embed/${"<video_id>"}"\n  width="640" height="360"\n  style="border:0;border-radius:12px"\n  allow="autoplay; fullscreen; picture-in-picture"\n  allowfullscreen\n></iframe>`}
+              code={`<iframe\n  src="https://transcode.procd.cc/embed/${"<video_id>"}"\n  width="640" height="360"\n  style="border:0;border-radius:12px"\n  allow="autoplay; fullscreen; picture-in-picture"\n  allowfullscreen\n></iframe>`}
             />
           </section>
 

@@ -9,9 +9,9 @@ const csp = (frameAncestors) =>
     "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://static.cloudflareinsights.com",
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: blob: https://*.cloudfront.net",
-    "media-src 'self' blob: https://api.transcode.pixly.sh https://*.cloudfront.net",
+    "media-src 'self' blob: https://api.transcode.procd.cc https://*.cloudfront.net",
     "font-src 'self' data:",
-    "connect-src 'self' blob: https://api.transcode.pixly.sh https://*.s3.amazonaws.com https://*.s3.eu-central-1.amazonaws.com https://*.cloudfront.net https://cloudflareinsights.com https://static.cloudflareinsights.com",
+    "connect-src 'self' blob: https://api.transcode.procd.cc https://*.s3.amazonaws.com https://*.s3.eu-central-1.amazonaws.com https://*.cloudfront.net https://cloudflareinsights.com https://static.cloudflareinsights.com",
     "worker-src 'self' blob:",
     "object-src 'none'",
     "base-uri 'self'",
@@ -25,8 +25,7 @@ const baseHeaders = [
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
   {
     key: "Permissions-Policy",
-    value:
-      "accelerometer=(), autoplay=(self), camera=(), encrypted-media=(self), fullscreen=(self), geolocation=(), gyroscope=(), microphone=(), payment=(), picture-in-picture=(self)",
+    value: "accelerometer=(), autoplay=(self), camera=(), encrypted-media=(self), fullscreen=(self), geolocation=(), gyroscope=(), microphone=(), payment=(), picture-in-picture=(self)",
   },
 ];
 
@@ -43,11 +42,7 @@ const nextConfig = {
       // Everything else: same-origin framing only.
       {
         source: "/((?!embed).*)",
-        headers: [
-          ...baseHeaders,
-          { key: "X-Frame-Options", value: "SAMEORIGIN" },
-          { key: "Content-Security-Policy", value: csp("'self'") },
-        ],
+        headers: [...baseHeaders, { key: "X-Frame-Options", value: "SAMEORIGIN" }, { key: "Content-Security-Policy", value: csp("'self'") }],
       },
     ];
   },

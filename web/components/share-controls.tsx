@@ -12,7 +12,7 @@ export function ShareControls({ videoId, initialPublic }: { videoId: string; ini
   const [saving, setSaving] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  const origin = typeof window !== "undefined" ? window.location.origin : "https://transcode.pixly.sh";
+  const origin = typeof window !== "undefined" ? window.location.origin : "https://transcode.procd.cc";
   const embedUrl = `${origin}/embed/${videoId}`;
   const embedCode = `<iframe src="${embedUrl}" width="640" height="360" style="border:0;border-radius:12px" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen></iframe>`;
 
@@ -46,9 +46,7 @@ export function ShareControls({ videoId, initialPublic }: { videoId: string; ini
           </div>
           <div className="min-w-0">
             <p className="text-sm text-ink">{isPublic ? "Public" : "Private"}</p>
-            <p className="mt-0.5 text-xs leading-relaxed text-muted">
-              {isPublic ? "Anyone with the link can watch and embed this video." : "Only you can watch this video."}
-            </p>
+            <p className="mt-0.5 text-xs leading-relaxed text-muted">{isPublic ? "Anyone with the link can watch and embed this video." : "Only you can watch this video."}</p>
           </div>
         </div>
 
@@ -59,10 +57,7 @@ export function ShareControls({ videoId, initialPublic }: { videoId: string; ini
             aria-checked={isPublic}
             onClick={toggle}
             disabled={saving}
-            className={cn(
-              "relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors disabled:opacity-50",
-              isPublic ? "bg-accent" : "border border-border bg-surface-2",
-            )}
+            className={cn("relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors disabled:opacity-50", isPublic ? "bg-accent" : "border border-border bg-surface-2")}
           >
             <span className={cn("inline-block h-4 w-4 transform rounded-full bg-bg transition-transform", isPublic ? "translate-x-6" : "translate-x-1")} />
           </button>

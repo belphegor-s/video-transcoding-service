@@ -23,7 +23,7 @@ const mono = JetBrains_Mono({
   display: "swap",
 });
 
-const siteUrl = "https://transcode.pixly.sh";
+const siteUrl = "https://transcode.procd.cc";
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
@@ -31,8 +31,7 @@ export const metadata: Metadata = {
     default: "Transcoder: adaptive video pipeline with AI captions",
     template: "%s · Transcoder",
   },
-  description:
-    "Upload once. Get adaptive HLS streams from 144p to 4K, auto-generated captions, and global CDN delivery. A production-grade transcoding pipeline.",
+  description: "Upload once. Get adaptive HLS streams from 144p to 4K, auto-generated captions, and global CDN delivery. A production-grade transcoding pipeline.",
   keywords: ["video transcoding", "HLS", "adaptive bitrate", "AI captions", "ffmpeg", "CDN"],
   authors: [{ name: "Ayush Sharma", url: "https://ayushsharma.me" }],
   creator: "Ayush Sharma",
