@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { ArrowLeft, Clock, Layers, Loader2 } from "lucide-react";
+import { ArrowLeft, Clock, Layers, Loader2, MonitorPlay } from "lucide-react";
 import { AppHeader } from "@/components/app-header";
 import { VideoPlayer } from "@/components/player";
 import { DownloadMenu } from "@/components/download-menu";
@@ -46,7 +46,7 @@ export default function WatchPage() {
   }
 
   const title = video ? video.original_filename ?? (video.s3_key.split("/").pop() ?? "video").replace(/^video-/, "") : "";
-  const qualities = video ? qualitiesFromVideo(video).map((q) => q.label) : [];
+  const qualities = video ? qualitiesFromVideo(video) : [];
 
   return (
     <div className="relative z-10 min-h-screen">
@@ -93,15 +93,21 @@ export default function WatchPage() {
                     onSaved={(name) => setVideo({ ...video, original_filename: name })}
                   />
                   <div className="mt-2 flex flex-wrap items-center gap-x-5 gap-y-2 font-mono text-[11px] text-faint">
-                    <span className="inline-flex items-center gap-1.5">
+                    <span className="inline-flex items-center gap-1.5" title={new Date(video.created_at).toLocaleString()}>
                       <Clock className="h-3.5 w-3.5" />
                       {timeAgo(video.created_at)}
                     </span>
                     {qualities.length > 0 && (
-                      <span className="inline-flex items-center gap-1.5">
-                        <Layers className="h-3.5 w-3.5 text-accent" />
-                        {qualities.length} renditions
-                      </span>
+                      <>
+                        <span className="inline-flex items-center gap-1.5">
+                          <Layers className="h-3.5 w-3.5 text-accent" />
+                          {qualities.length} rendition{qualities.length > 1 ? "s" : ""}
+                        </span>
+                        <span className="inline-flex items-center gap-1.5" title="Highest available rendition">
+                          <MonitorPlay className="h-3.5 w-3.5" />
+                          {qualities[0].width} &times; {qualities[0].height}
+                        </span>
+                      </>
                     )}
                   </div>
                   <div className="mt-3">

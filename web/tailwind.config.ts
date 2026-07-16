@@ -37,6 +37,10 @@ const config: Config = {
           "0%": { opacity: "0" },
           "100%": { opacity: "1" },
         },
+        "pop": {
+          "0%": { opacity: "0", transform: "scale(0.96)" },
+          "100%": { opacity: "1", transform: "scale(1)" },
+        },
         "pulse-soft": {
           "0%, 100%": { opacity: "1" },
           "50%": { opacity: "0.35" },
@@ -48,6 +52,7 @@ const config: Config = {
       animation: {
         rise: "rise 0.7s cubic-bezier(0.16,1,0.3,1) both",
         fade: "fade 0.9s ease both",
+        pop: "pop 0.14s cubic-bezier(0.16,1,0.3,1) both",
         "pulse-soft": "pulse-soft 1.6s ease-in-out infinite",
         "spin-slow": "spin-slow 0.8s linear infinite",
       },
