@@ -6,6 +6,7 @@ import {
   deleteFolderController,
   downloadTokenController,
   foldersController,
+  folderStatsController,
   moveVideosController,
   renameFolderController,
   renameVideoController,
@@ -26,6 +27,7 @@ router.get("/user-video", userVideoController);
 router.get("/by-id", videoByIdController);
 router.get("/progress", renditionProgressController);
 router.get("/folders", foldersController);
+router.get("/folder-stats", folderStatsController);
 router.post("/folders", createFolderController);
 router.patch("/folders/rename", renameFolderController);
 router.delete("/folders", deleteFolderController);

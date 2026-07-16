@@ -1,4 +1,4 @@
-import type { ApiKey, AuthUser, CaptionTrack, CreatedApiKey, Paginated, PresignedPost, RenditionProgress, Transcription, Video, VideoStatus } from "./types";
+import type { ApiKey, AuthUser, CaptionTrack, CreatedApiKey, FolderStat, Paginated, PresignedPost, RenditionProgress, Transcription, Video, VideoStatus } from "./types";
 
 const BASE = (process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:9191/api/v1").replace(/\/$/, "");
 
@@ -184,6 +184,8 @@ export const api = {
     }),
 
   folders: () => request<string[]>("/video/folders", { auth: true }),
+
+  folderStats: () => request<FolderStat[]>("/video/folder-stats", { auth: true }),
 
   setFolder: (videoId: string, folder: string | null) =>
     request<{ video_id: string; folder: string | null }>("/video/folder", {

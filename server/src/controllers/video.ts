@@ -2,7 +2,7 @@ import { Request, Response } from "express";
 import Video from "../models/Video";
 import Folder from "../models/Folder";
 import { z } from "zod";
-import { Op } from "sequelize";
+import { col, fn, Op } from "sequelize";
 import { v4 as uuid } from "uuid";
 
 /** Normalize a (possibly nested) folder path: trim segments, drop empties. */
@@ -166,6 +166,41 @@ export const foldersController = async (req: Request, res: Response) => {
     return res.json({ data: folders });
   } catch (e: any) {
     console.error("foldersController ->", e);
+    return res.status(500).json({ error: { message: e?.message ?? "Internal server error!" } });
+  }
+};
+
+/**
+ * Per-folder rollup for the library cards: how many videos sit directly in each
+ * folder, and when the newest one landed. Nesting is rolled up client-side from
+ * these exact-path counts, so this stays a single grouped query.
+ */
+export const folderStatsController = async (req: Request, res: Response) => {
+  try {
+    // @ts-ignore
+    const userId = req.userId;
+    const rows = await Video.findAll({
+      where: { user_id: userId, folder: { [Op.ne]: null } },
+      attributes: [
+        "folder",
+        [fn("COUNT", col("video_id")), "videos"],
+        [fn("MAX", col("created_at")), "updated_at"],
+      ],
+      group: ["folder"],
+      raw: true,
+    });
+
+    const stats = (rows as unknown as { folder: string; videos: string | number; updated_at: Date | string }[])
+      .filter((r) => r.folder)
+      .map((r) => ({
+        path: r.folder,
+        videos: Number(r.videos) || 0,
+        updated_at: r.updated_at instanceof Date ? r.updated_at.toISOString() : r.updated_at,
+      }));
+
+    return res.json({ data: stats });
+  } catch (e: any) {
+    console.error("folderStatsController ->", e);
     return res.status(500).json({ error: { message: e?.message ?? "Internal server error!" } });
   }
 };

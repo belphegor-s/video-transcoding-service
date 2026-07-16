@@ -56,6 +56,46 @@ export interface CaptionTrack {
   path: string;
 }
 
+/** Video count + newest upload for one exact folder path (no nesting rolled in). */
+export interface FolderStat {
+  path: string;
+  videos: number;
+  updated_at: string;
+}
+
+export interface FolderSummary {
+  /** Videos in this folder and everything nested under it. */
+  videos: number;
+  /** Immediate child folders. */
+  subfolders: number;
+  /** Newest upload across this folder and its descendants, if any. */
+  updated_at?: string;
+}
+
+/**
+ * Roll per-path stats up a tree: a folder's totals include its descendants, so
+ * "Marketing" counts what sits in "Marketing/Q1" too.
+ */
+export function summarizeFolder(path: string, allPaths: string[], stats: FolderStat[]): FolderSummary {
+  const prefix = `${path}/`;
+  let videos = 0;
+  let updated: string | undefined;
+
+  for (const s of stats) {
+    if (s.path !== path && !s.path.startsWith(prefix)) continue;
+    videos += s.videos;
+    if (s.updated_at && (!updated || s.updated_at > updated)) updated = s.updated_at;
+  }
+
+  const subfolders = new Set<string>();
+  for (const p of allPaths) {
+    if (!p.startsWith(prefix)) continue;
+    subfolders.add(p.slice(prefix.length).split("/")[0]);
+  }
+
+  return { videos, subfolders: subfolders.size, updated_at: updated };
+}
+
 /** Derive available qualities from rendition keys (mirrors the server). */
 export function qualitiesFromVideo(video: Pick<Video, "transcoded_urls">): Quality[] {
   return (video.transcoded_urls ?? [])

@@ -41,7 +41,7 @@ import { isInFlight } from "@/components/status-badge";
 import { useAuth } from "@/lib/use-auth";
 import { api, bulkDownloadUrl, folderDownloadUrl } from "@/lib/api";
 import { cn } from "@/lib/utils";
-import { LIFETIME_VIDEO_LIMIT, MAX_FILE_BYTES, type Paginated, type Video } from "@/lib/types";
+import { LIFETIME_VIDEO_LIMIT, MAX_FILE_BYTES, summarizeFolder, type FolderStat, type Paginated, type Video } from "@/lib/types";
 
 const COUNTED: Video["status"][] = ["uploaded", "transcoding", "transcoded"];
 const PAGE_SIZE = 12;
@@ -59,6 +59,7 @@ export default function DashboardPage() {
   const [debouncedQ, setDebouncedQ] = useState("");
   const [folder, setFolder] = useState("");
   const [folders, setFolders] = useState<string[]>([]);
+  const [folderStats, setFolderStats] = useState<FolderStat[]>([]);
   const [sort, setSort] = useState("newest");
   const [view, setView] = useState<"grid" | "list">("grid");
 
@@ -135,7 +136,18 @@ export default function DashboardPage() {
   useEffect(() => {
     setData(null);
   }, [folder, debouncedQ, sort, offset]);
-  const refreshFolders = useCallback(() => api.folders().then(setFolders).catch(() => {}), []);
+  // Folder paths and their counts refresh together, so the cards never show
+  // totals from before an upload/move/delete.
+  const refreshFolders = useCallback(
+    () =>
+      Promise.all([api.folders(), api.folderStats().catch(() => [] as FolderStat[])])
+        .then(([paths, stats]) => {
+          setFolders(paths);
+          setFolderStats(stats);
+        })
+        .catch(() => {}),
+    [],
+  );
   useEffect(() => {
     if (!authLoading && user) refreshFolders();
   }, [authLoading, user, refreshFolders, data]);
@@ -535,22 +547,26 @@ export default function DashboardPage() {
               {/* folders (instant) + videos (skeleton while loading) share one grid */}
               <div className={cn(view === "grid" ? "grid gap-5 sm:grid-cols-2 lg:grid-cols-3" : "flex flex-col gap-2")}>
                 {hasFolders &&
-                  subfolders.map((name) => (
-                    <FolderCard
-                      key={`f:${name}`}
-                      name={name}
-                      path={folder ? `${folder}/${name}` : name}
-                      view={view}
-                      selected={selectedFolders.has(folder ? `${folder}/${name}` : name)}
-                      selectionActive={selectionActive}
-                      onToggleSelect={toggleSelectFolder}
-                      onOpen={setFolder}
-                      onContextMenu={(e, path, fname) => {
-                        e.preventDefault();
-                        setMenu({ x: e.clientX, y: e.clientY, folder: { path, name: fname } });
-                      }}
-                    />
-                  ))}
+                  subfolders.map((name) => {
+                    const path = folder ? `${folder}/${name}` : name;
+                    return (
+                      <FolderCard
+                        key={`f:${name}`}
+                        name={name}
+                        path={path}
+                        summary={summarizeFolder(path, folders, folderStats)}
+                        view={view}
+                        selected={selectedFolders.has(path)}
+                        selectionActive={selectionActive}
+                        onToggleSelect={toggleSelectFolder}
+                        onOpen={setFolder}
+                        onContextMenu={(e, p, fname) => {
+                          e.preventDefault();
+                          setMenu({ x: e.clientX, y: e.clientY, folder: { path: p, name: fname } });
+                        }}
+                      />
+                    );
+                  })}
                 {loading
                   ? Array.from({ length: 6 }).map((_, i) =>
                       view === "grid" ? (
