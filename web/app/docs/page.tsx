@@ -23,7 +23,7 @@ const SECTIONS = [
   { id: "errors", label: "Errors" },
 ];
 
-const BASE = "https://api.transcode.procd.cc/api/v1";
+const BASE = "https://api-transcode.procd.cc/api/v1";
 
 function H({ id, children }: { id: string; children: React.ReactNode }) {
   return (

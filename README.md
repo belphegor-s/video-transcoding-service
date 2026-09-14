@@ -49,7 +49,7 @@
 
 - **Frontend** (`/web`, Next.js) and **API** (`/server`, Express) deploy as two apps on Coolify,
   each built from its own `Dockerfile`. Production: web → `transcode.procd.cc`, API →
-  `api.transcode.procd.cc`.
+  `api-transcode.procd.cc`.
 - The transcoding worker (`/transcoding-img`) runs on ECS Fargate; the trigger lives in `/lambdas`.
 
 ---
