@@ -4,55 +4,59 @@ const { Client } = require("pg");
 
 const ecsClient = new ECSClient({ region: process.env.AWS_REGION });
 
+const QUEUE_LIMIT = 5;
+const REDIS_PORT = Number(process.env.REDIS_PORT) || 17534;
+
 exports.handler = async (event, context) => {
   context.callbackWaitsForEmptyEventLoop = false;
 
-  const redisClient = createClient({
-    username: process.env.REDIS_USERNAME,
-    password: process.env.REDIS_PASSWORD,
-    socket: {
-      host: process.env.REDIS_HOST,
-      port: 17534,
-    },
-  });
+  const s3Event = event.Records[0].s3;
+  // S3 URL-encodes the key in the event payload ("+" for spaces).
+  const objectKey = decodeURIComponent(s3Event.object.key.replace(/\+/g, " "));
+  const userId = objectKey.split("/")[1];
 
-  const dbClient = new Client({
-    connectionString: process.env.DATABASE_URI,
-  });
+  const dbClient = new Client({ connectionString: process.env.DATABASE_URI });
 
-  const pushToQueue = async (userId, objectKey) => {
-    await redisClient.hSet(userId, objectKey, Date.now());
+  const setStatus = async (status) => {
+    await dbClient.query({
+      text: 'UPDATE "Videos" SET status = $1 WHERE s3_key = $2',
+      values: [status, objectKey],
+    });
   };
 
-  const getQueueSize = async (userId) => {
-    const objectKeys = await redisClient.hKeys(userId);
-    return objectKeys.length;
+  // Redis only backs the per-user concurrency queue. It must never be able to
+  // strand a video in `signed_url_generated`, so every call is best-effort.
+  let redisClient = null;
+  const withRedis = async (fn, fallback) => {
+    try {
+      if (!redisClient) {
+        redisClient = createClient({
+          username: process.env.REDIS_USERNAME,
+          password: process.env.REDIS_PASSWORD,
+          socket: { host: process.env.REDIS_HOST, port: REDIS_PORT, connectTimeout: 5000 },
+        });
+        redisClient.on("error", () => {});
+        await redisClient.connect();
+      }
+      return await fn(redisClient);
+    } catch (err) {
+      console.error("Redis unavailable, continuing without queue accounting:", err.message);
+      return fallback;
+    }
   };
 
   try {
-    await redisClient.connect();
     await dbClient.connect();
 
-    const s3Event = event.Records[0].s3;
-    const objectKey = s3Event.object.key;
-    const userId = objectKey.split("/")[1];
+    // Mark the upload before anything else can fail: the object is already in S3.
+    await setStatus("uploaded");
 
-    const queueSize = await getQueueSize(userId);
-
-    const query = {
-      text: 'UPDATE "Videos" SET status = $1 WHERE s3_key = $2',
-      values: ["uploaded", objectKey],
-    };
-    await dbClient.query(query);
-
-    if (queueSize >= 5) {
-      return {
-        statusCode: 400,
-        body: `Queue limit reached for userId: ${userId}`,
-      };
+    const queueSize = await withRedis(async (c) => (await c.hKeys(userId)).length, 0);
+    if (queueSize >= QUEUE_LIMIT) {
+      return { statusCode: 400, body: `Queue limit reached for userId: ${userId}` };
     }
 
-    await pushToQueue(userId, objectKey);
+    await withRedis((c) => c.hSet(userId, objectKey, Date.now()), null);
 
     const runTaskCommand = new RunTaskCommand({
       cluster: "video-transcoder",
@@ -91,23 +95,20 @@ exports.handler = async (event, context) => {
     const taskRunResult = await ecsClient.send(runTaskCommand);
     console.log("ECS Task Started:", taskRunResult);
 
-    await dbClient.query({
-      text: 'UPDATE "Videos" SET status = $1 WHERE s3_key = $2',
-      values: ["transcoding", objectKey],
-    });
+    await setStatus("transcoding");
 
-    return {
-      statusCode: 200,
-      body: "Video added to processing queue",
-    };
+    return { statusCode: 200, body: "Video added to processing queue" };
   } catch (err) {
     console.error(err);
-    return {
-      statusCode: 500,
-      body: "An error occurred",
-    };
+    // Surface the failure instead of leaving the row stuck mid-pipeline.
+    try {
+      await setStatus("error");
+    } catch (statusErr) {
+      console.error("Could not mark video as errored:", statusErr.message);
+    }
+    return { statusCode: 500, body: "An error occurred" };
   } finally {
-    await dbClient.end();
-    await redisClient.disconnect();
+    await dbClient.end().catch(() => {});
+    if (redisClient) await redisClient.disconnect().catch(() => {});
   }
 };
