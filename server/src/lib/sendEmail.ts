@@ -11,7 +11,7 @@ interface SendEmailOptions {
 }
 
 export const sendEmail = async ({ to, subject, html, from }: SendEmailOptions) => {
-  const sender = from || "Ayush Sharma <hello@ayushsharma.me>";
+  const sender = from || "transcode <hello@procd.cc>";
   return await resend.emails.send({
     from: sender,
     to,
