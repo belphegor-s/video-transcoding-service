@@ -25,6 +25,8 @@ export function HeroBackground() {
     <div aria-hidden className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
       {webgl ? <ShaderField /> : <StaticField />}
 
+      <div className="absolute inset-0 bg-bg/25" />
+      <div className="absolute inset-0 bg-gradient-to-r from-bg via-bg/70 to-transparent" />
       <div className="absolute inset-x-0 top-0 h-32 bg-gradient-to-b from-bg via-bg/85 to-transparent sm:h-40" />
       <div
         className="absolute inset-0"
