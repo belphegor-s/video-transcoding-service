@@ -25,11 +25,12 @@ export function HeroBackground() {
     <div aria-hidden className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
       {webgl ? <ShaderField /> : <StaticField />}
 
+      <div className="absolute inset-x-0 top-0 h-32 bg-gradient-to-b from-bg via-bg/85 to-transparent sm:h-40" />
       <div
         className="absolute inset-0"
         style={{
           background:
-            "radial-gradient(ellipse 95% 75% at 50% 6%, transparent 24%, rgba(11,11,12,0.5) 68%, #0b0b0c 100%)",
+            "radial-gradient(ellipse 90% 70% at 50% 42%, transparent 30%, rgba(11,11,12,0.5) 80%, #0b0b0c 100%)",
         }}
       />
       <div className="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-b from-transparent to-bg" />
@@ -50,15 +51,15 @@ function ShaderField() {
 
   return (
     <MeshGradient
-      className="h-full w-full opacity-80"
-      colors={["#0b0b0c", "#111a08", "#2b3d0e", "#8fbf33"]}
-      distortion={0.85}
-      swirl={0.3}
-      grainMixer={0.35}
-      grainOverlay={0.08}
-      speed={reduceMotion ? 0 : 0.25}
+      className="h-full w-full opacity-55"
+      colors={["#0b0b0c", "#0e1409", "#1c270c", "#5c7a24"]}
+      distortion={0.7}
+      swirl={0.18}
+      grainMixer={0.3}
+      grainOverlay={0.06}
+      speed={reduceMotion ? 0 : 0.16}
       fit="cover"
-      scale={1.15}
+      scale={1.3}
       minPixelRatio={1.5}
     />
   );
