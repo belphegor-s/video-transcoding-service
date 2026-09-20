@@ -1,6 +1,6 @@
 "use client";
 
-import { MeshGradient } from "@paper-design/shaders-react";
+import { Dithering } from "@paper-design/shaders-react";
 import { ExternalLink, Sparkles } from "lucide-react";
 import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 const SHADER_HREF = "https://shaders.paper.design";
 const SHADER_NAME = "Paper Shaders";
 const SHADER_TITLE =
-  "Live WebGL mesh gradient by Paper Shaders (Apache-2.0) · shaders.paper.design";
+  "Live WebGL dithered wave by Paper Shaders (Apache-2.0) · shaders.paper.design";
 
 export function HeroBackground() {
   const [webgl, setWebgl] = useState(false);
@@ -50,16 +50,16 @@ function ShaderField() {
   }, []);
 
   return (
-    <MeshGradient
-      className="h-full w-full opacity-55"
-      colors={["#0b0b0c", "#0e1409", "#1c270c", "#5c7a24"]}
-      distortion={0.7}
-      swirl={0.18}
-      grainMixer={0.3}
-      grainOverlay={0.06}
-      speed={reduceMotion ? 0 : 0.16}
+    <Dithering
+      className="h-full w-full opacity-35"
+      colorBack="#0b0b0c"
+      colorFront="#cdfb46"
+      shape="wave"
+      type="8x8"
+      size={4}
+      speed={reduceMotion ? 0 : 0.18}
       fit="cover"
-      scale={1.3}
+      scale={1.15}
       minPixelRatio={1.5}
     />
   );

@@ -50,7 +50,7 @@ export default function LandingPage() {
       <main className="relative z-10">
         {/* ---------------------------------- HERO ---------------------------------- */}
         <section className="relative overflow-hidden pt-36 pb-24 sm:pt-44 sm:pb-32">
-          {/* live WebGL atmosphere (Paper Shaders mesh gradient) */}
+          {/* live WebGL atmosphere (Paper Shaders dithered wave) */}
           <HeroBackground />
           <div
             aria-hidden
