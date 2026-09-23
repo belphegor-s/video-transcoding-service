@@ -63,6 +63,10 @@ export default function SignupPage() {
             Click the link in that email to verify your account, then sign in. The link expires in 24
             hours.
           </p>
+          <p className="rounded-xl border border-accent/30 bg-accent/5 px-4 py-3 text-sm leading-relaxed text-muted">
+            <span className="font-medium text-accent">Can&apos;t find it?</span> Check your spam or junk
+            folder.
+          </p>
           <Link href="/login" className="btn-ghost w-full py-3">
             Go to sign in
           </Link>
