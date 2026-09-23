@@ -2,7 +2,8 @@ import Link from "next/link";
 import { ArrowUpRight, Captions, Gauge, Globe, Layers, Lock, Sparkles, UploadCloud } from "lucide-react";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
-import { HeroBackground, HeroShaderCredit } from "@/components/hero-background";
+import { HeroBackground } from "@/components/hero-background";
+import { SHADER_TITLE } from "@/lib/shader-credit";
 
 const RESOLUTIONS = ["144p", "240p", "360p", "480p", "720p", "1080p", "2K", "4K"];
 
@@ -49,8 +50,8 @@ export default function LandingPage() {
 
       <main className="relative z-10">
         {/* ---------------------------------- HERO ---------------------------------- */}
-        <section className="relative overflow-hidden pt-36 pb-24 sm:pt-44 sm:pb-32">
-          {/* live WebGL atmosphere (Paper Shaders dithered wave) */}
+        <section title={SHADER_TITLE} className="relative overflow-hidden pt-36 pb-24 sm:pt-44 sm:pb-32">
+          {/* live WebGL2 contour field (hand-written, simplex noise via webgl-noise, MIT) */}
           <HeroBackground />
           <div
             aria-hidden
@@ -111,9 +112,6 @@ export default function LandingPage() {
                     {r}
                   </span>
                 ))}
-              </div>
-              <div className="mt-6">
-                <HeroShaderCredit />
               </div>
             </div>
           </div>

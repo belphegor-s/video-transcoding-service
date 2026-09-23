@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Logo } from "./logo";
+import { SHADER_CREDIT, SHADER_TITLE } from "@/lib/shader-credit";
 
 export function SiteFooter() {
   return (
@@ -31,17 +32,17 @@ export function SiteFooter() {
         <div className="flex flex-col gap-2 font-mono text-[11px] text-faint sm:flex-row sm:items-center sm:justify-between">
           <p>© {new Date().getFullYear()} Ayush Sharma. All rights reserved.</p>
           <p>
-            Built with ffmpeg, AWS &amp; a lot of coffee. Hero shader by{" "}
+            Built with ffmpeg, AWS &amp; a lot of coffee. Hero noise by{" "}
             <a
-              href="https://shaders.paper.design"
+              href={SHADER_CREDIT.href}
               target="_blank"
               rel="noreferrer"
-              title="Paper Shaders — open-source WebGL mesh gradient (Apache-2.0)"
+              title={SHADER_TITLE}
               className="underline decoration-border underline-offset-2 transition-colors hover:text-accent"
             >
-              Paper Shaders
+              {SHADER_CREDIT.name}
             </a>{" "}
-            (Apache-2.0).
+            ({SHADER_CREDIT.license}).
           </p>
         </div>
       </div>
