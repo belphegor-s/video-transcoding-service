@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Instrument_Serif, Hanken_Grotesk, JetBrains_Mono } from "next/font/google";
 import { Toaster } from "sonner";
 import "./globals.css";
@@ -24,6 +24,10 @@ const mono = JetBrains_Mono({
 });
 
 const siteUrl = "https://transcode.procd.cc";
+
+export const viewport: Viewport = {
+  themeColor: "#0b0b0c",
+};
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
