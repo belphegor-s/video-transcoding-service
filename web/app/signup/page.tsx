@@ -99,6 +99,17 @@ export default function SignupPage() {
           </p>
         </div>
         <SubmitButton loading={isSubmitting}>Create account</SubmitButton>
+        <p className="text-center text-[11px] leading-relaxed text-faint">
+          By creating an account you agree to our{" "}
+          <Link href="/terms" className="text-muted underline decoration-border underline-offset-2 hover:text-ink">
+            Terms
+          </Link>{" "}
+          and{" "}
+          <Link href="/privacy" className="text-muted underline decoration-border underline-offset-2 hover:text-ink">
+            Privacy Policy
+          </Link>
+          .
+        </p>
       </form>
     </AuthShell>
   );

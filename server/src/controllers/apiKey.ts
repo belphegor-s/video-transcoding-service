@@ -10,7 +10,7 @@ function status(k: ApiKey): "active" | "expired" | "revoked" {
   return "active";
 }
 
-function present(k: ApiKey) {
+export function present(k: ApiKey) {
   return {
     api_key_id: k.api_key_id,
     name: k.name,

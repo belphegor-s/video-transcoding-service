@@ -2,5 +2,6 @@ User-agent: *
 Allow: /
 Disallow: /dashboard
 Disallow: /watch
+Disallow: /admin
 
 Sitemap: https://transcode.procd.cc/sitemap.xml

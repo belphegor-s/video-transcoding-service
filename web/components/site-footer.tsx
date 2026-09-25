@@ -30,7 +30,15 @@ export function SiteFooter() {
         </div>
         <div className="hairline my-8" />
         <div className="flex flex-col gap-2 font-mono text-[11px] text-faint sm:flex-row sm:items-center sm:justify-between">
-          <p>© {new Date().getFullYear()} Ayush Sharma. All rights reserved.</p>
+          <p className="flex flex-wrap items-center gap-x-4 gap-y-1">
+            <span>© {new Date().getFullYear()} Ayush Sharma. All rights reserved.</span>
+            <Link href="/privacy" className="transition-colors hover:text-ink">
+              Privacy
+            </Link>
+            <Link href="/terms" className="transition-colors hover:text-ink">
+              Terms
+            </Link>
+          </p>
           <p>
             Built with ffmpeg, AWS &amp; a lot of coffee. Hero noise by{" "}
             <a

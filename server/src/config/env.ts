@@ -37,6 +37,9 @@ const schema = z.object({
 
   // Public URL of the frontend; drives the CORS allowlist and email links.
   CLIENT_APP_URL: z.string().url(),
+
+  // Comma-separated emails granted the admin console. The owner is always an admin.
+  ADMIN_EMAILS: z.string().optional().default(""),
 });
 
 const parsed = schema.safeParse(process.env);

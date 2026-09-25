@@ -18,6 +18,7 @@ export function AppHeader({ user }: { user: AuthUser | null }) {
   const router = useRouter();
   const pathname = usePathname();
 
+  const nav = user?.admin ? [...NAV, { href: "/admin", label: "Admin" }] : NAV;
   const isActive = (href: string) => (href === "/dashboard" ? pathname === href : pathname.startsWith(href));
 
   return (
@@ -26,7 +27,7 @@ export function AppHeader({ user }: { user: AuthUser | null }) {
         <div className="flex items-center gap-8">
           <Logo href="/dashboard" />
           <nav className="hidden items-center gap-6 font-mono text-xs md:flex">
-            {NAV.map((item) => (
+            {nav.map((item) => (
               <Link
                 key={item.href}
                 href={item.href}
@@ -55,7 +56,7 @@ export function AppHeader({ user }: { user: AuthUser | null }) {
 
       {/* mobile nav */}
       <nav className="flex items-center gap-1 overflow-x-auto border-t border-border px-4 py-2 font-mono text-xs md:hidden">
-        {NAV.map((item) => (
+        {nav.map((item) => (
           <Link
             key={item.href}
             href={item.href}

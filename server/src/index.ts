@@ -25,7 +25,7 @@ const restrictiveCors = cors({
 const openCors = cors({ exposedHeaders: ["Content-Disposition", "X-Total-Bytes"] });
 
 app.use(["/api/v1/public", "/api/v1/download"], openCors);
-app.use(["/api/v1/user", "/api/v1/upload", "/api/v1/video", "/api/v1/api-keys"], restrictiveCors);
+app.use(["/api/v1/user", "/api/v1/upload", "/api/v1/video", "/api/v1/api-keys", "/api/v1/admin"], restrictiveCors);
 
 app.use(
   express.json({

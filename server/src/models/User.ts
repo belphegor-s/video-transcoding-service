@@ -12,6 +12,8 @@ export interface UserSchema {
   verify_token?: string | null;
   verify_token_expiry?: Date | null;
   is_verified?: boolean;
+  is_suspended?: boolean;
+  last_active_at?: Date | null;
 }
 
 class User extends Model<UserSchema> implements UserSchema {
@@ -25,6 +27,8 @@ class User extends Model<UserSchema> implements UserSchema {
   public verify_token?: string | null;
   public verify_token_expiry?: Date | null;
   public is_verified?: boolean;
+  public is_suspended?: boolean;
+  public last_active_at?: Date | null;
 }
 
 User.init(
@@ -75,6 +79,18 @@ User.init(
     is_verified: {
       type: DataTypes.BOOLEAN,
       defaultValue: false,
+    },
+    // Set by an admin; blocks login and every authed request.
+    is_suspended: {
+      type: DataTypes.BOOLEAN,
+      allowNull: false,
+      defaultValue: false,
+    },
+    // Last login or authed request (throttled), for activity analytics.
+    last_active_at: {
+      type: DataTypes.DATE,
+      allowNull: true,
+      defaultValue: null,
     },
   },
   {

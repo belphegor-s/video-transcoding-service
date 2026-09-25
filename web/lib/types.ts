@@ -127,6 +127,7 @@ export interface AuthUser {
   email: string;
   name?: string;
   unlimited?: boolean;
+  admin?: boolean;
 }
 
 export type ApiKeyStatus = "active" | "expired" | "revoked";
@@ -151,4 +152,115 @@ export interface PresignedPost {
   fields: Record<string, string>;
   video_id: string;
   s3_key: string;
+}
+
+/* --------------------------------- admin ---------------------------------- */
+
+export type AdminRange = 7 | 30 | 90 | 365;
+
+export interface AdminSeriesPoint {
+  date: string; // bucket start, YYYY-MM-DD (UTC)
+  signups: number;
+  ready: number;
+  processing: number;
+  failed: number;
+  abandoned: number;
+}
+
+export interface AdminStorage {
+  total_bytes: number;
+  source_bytes: number;
+  output_bytes: number;
+  objects: number;
+  users_with_data: number;
+  computed_at: string;
+  duration_ms: number;
+}
+
+export interface AdminUserRef {
+  user_id: string;
+  name: string;
+  email: string;
+}
+
+export type StatusCounts = Record<VideoStatus, number>;
+
+export interface AdminOverview {
+  range: { days: AdminRange; from: string; to: string; bucket: "day" | "week" };
+  users: {
+    total: number;
+    verified: number;
+    suspended: number;
+    new_in_range: number;
+    new_prev: number;
+    active_1d: number;
+    active_7d: number;
+    active_30d: number;
+  };
+  videos: {
+    total: number;
+    public: number;
+    uploaders: number;
+    in_range: number;
+    prev: number;
+    ready_in_range: number;
+    failed_in_range: number;
+    success_rate: number | null;
+    by_status: StatusCounts;
+  };
+  api_keys: { active: number; used_30d: number };
+  series: AdminSeriesPoint[];
+  mime_types: { mime_type: string; count: number }[];
+  top_users: (AdminUserRef & { videos: number; last_upload_at: string | null; bytes: number | null })[];
+  recent_videos: {
+    video_id: string;
+    original_filename: string | null;
+    status: VideoStatus;
+    mime_type: string;
+    created_at: string;
+    user: AdminUserRef;
+  }[];
+  storage: AdminStorage | null;
+}
+
+export type AdminUserFilter = "all" | "verified" | "unverified" | "suspended" | "active";
+export type AdminUserSort = "newest" | "oldest" | "active" | "videos" | "name";
+
+export interface AdminUserRow extends AdminUserRef {
+  created_at: string;
+  is_verified: boolean;
+  is_suspended: boolean;
+  last_active_at: string | null;
+  last_upload_at: string | null;
+  videos: number;
+  failed: number;
+  bytes: number | null;
+  admin: boolean;
+}
+
+export interface AdminUserDetail {
+  user: AdminUserRef & {
+    created_at: string;
+    is_verified: boolean;
+    is_suspended: boolean;
+    last_active_at: string | null;
+    admin: boolean;
+    unlimited: boolean;
+  };
+  by_status: StatusCounts;
+  public_videos: number;
+  folders: number;
+  storage: { source_bytes: number; output_bytes: number; objects: number; total_bytes: number; computed_at: string } | null;
+  storage_computed_at: string | null;
+  recent_videos: {
+    video_id: string;
+    original_filename: string | null;
+    status: VideoStatus;
+    mime_type: string;
+    is_public: boolean;
+    folder: string | null;
+    created_at: string;
+    renditions: number;
+  }[];
+  api_keys: ApiKey[];
 }

@@ -1,4 +1,23 @@
-import type { ApiKey, AuthUser, CaptionTrack, CreatedApiKey, FolderStat, Paginated, PresignedPost, RenditionProgress, Transcription, Video, VideoStatus } from "./types";
+import type {
+  AdminOverview,
+  AdminRange,
+  AdminStorage,
+  AdminUserDetail,
+  AdminUserFilter,
+  AdminUserRow,
+  AdminUserSort,
+  ApiKey,
+  AuthUser,
+  CaptionTrack,
+  CreatedApiKey,
+  FolderStat,
+  Paginated,
+  PresignedPost,
+  RenditionProgress,
+  Transcription,
+  Video,
+  VideoStatus,
+} from "./types";
 
 const BASE = (process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:9191/api/v1").replace(/\/$/, "");
 
@@ -268,6 +287,38 @@ export const api = {
   deleteApiKey: (id: string) => request<{ api_key_id: string }>(`/api-keys/${id}`, { method: "DELETE", auth: true }),
 
   renameApiKey: (id: string, name: string) => request<ApiKey>(`/api-keys/${id}`, { method: "PATCH", auth: true, body: { name } }),
+
+  // Admin console (owner/admin accounts only; the server enforces it).
+  admin: {
+    overview: (days: AdminRange, refreshStorage = false) =>
+      request<AdminOverview>("/admin/overview", {
+        auth: true,
+        query: { days: String(days), refresh_storage: refreshStorage ? "1" : undefined },
+      }),
+
+    storage: (refresh = false) => request<AdminStorage>("/admin/storage", { auth: true, query: { refresh: refresh ? "1" : undefined } }),
+
+    users: (opts: { q?: string; status?: AdminUserFilter; sort?: AdminUserSort; limit?: number; offset?: number }) =>
+      request<Paginated<AdminUserRow>>("/admin/users", {
+        auth: true,
+        query: {
+          q: opts.q || undefined,
+          status: opts.status,
+          sort: opts.sort,
+          limit: String(opts.limit ?? 20),
+          offset: String(opts.offset ?? 0),
+        },
+      }),
+
+    user: (id: string) => request<AdminUserDetail>(`/admin/users/${encodeURIComponent(id)}`, { auth: true }),
+
+    updateUser: (id: string, patch: { is_suspended?: boolean; is_verified?: boolean }) =>
+      request<{ user_id: string; is_suspended: boolean; is_verified: boolean }>(`/admin/users/${encodeURIComponent(id)}`, {
+        method: "PATCH",
+        auth: true,
+        body: patch,
+      }),
+  },
 };
 
 /** Authed master-playlist URL for the player (Bearer attached via xhrSetup). */

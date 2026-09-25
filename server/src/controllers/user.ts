@@ -6,7 +6,7 @@ import { v4 as uuid } from "uuid";
 import jwt, { Secret } from "jsonwebtoken";
 import { passwordResetEmail, verifyEmailTemplate } from "../email_templates/email";
 import { sendEmail } from "../lib/sendEmail";
-import { isUnlimited } from "../utils/account";
+import { isAdmin, isUnlimited } from "../utils/account";
 import { env } from "../config/env";
 
 const ACCESS_TOKEN_EXPIRES_IN = 60 * 60; // 1 hour
@@ -125,6 +125,12 @@ export const loginUserController = async (req: Request, res: Response) => {
       return res.status(400).json({ error: { message: "Password is invalid" } });
     }
 
+    if (existingUser.is_suspended) {
+      return res.status(403).json({ error: { code: "SUSPENDED", message: "This account has been suspended. Contact hello@ayushsharma.me." } });
+    }
+
+    await existingUser.update({ last_active_at: new Date() });
+
     const accessToken = jwt.sign({ userId: existingUser.user_id, email }, env.JWT_ACCESS_TOKEN_SECRET as Secret, { expiresIn: `${ACCESS_TOKEN_EXPIRES_IN}s` });
     const refreshToken = jwt.sign({ userId: existingUser.user_id, email }, env.JWT_REFRESH_TOKEN_SECRET as Secret, { expiresIn: `${REFRESH_TOKEN_EXPIRES_IN}s` });
 
@@ -134,6 +140,7 @@ export const loginUserController = async (req: Request, res: Response) => {
           userId: existingUser.user_id,
           email: existingUser.email,
           unlimited: isUnlimited(existingUser.email),
+          admin: isAdmin(existingUser.email),
         },
         accessToken,
         refreshToken,
@@ -191,7 +198,7 @@ export const tokenRefreshController = async (req: Request, res: Response) => {
 
 export const meController = async (req: Request, res: Response) => {
   // @ts-ignore
-  res.json({ data: { userId: req?.userId, email: req?.email, name: req?.name, unlimited: isUnlimited(req?.email) } });
+  res.json({ data: { userId: req?.userId, email: req?.email, name: req?.name, unlimited: isUnlimited(req?.email), admin: isAdmin(req?.email) } });
 };
 
 const resetRequestSchema = z.object({

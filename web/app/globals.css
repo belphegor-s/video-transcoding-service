@@ -149,3 +149,38 @@ media-poster img {
   object-fit: contain !important;
   object-position: center !important;
 }
+
+/* Long-form legal copy: quiet links and emphasis that stay in the ink scale. */
+.legal-prose a,
+.legal-summary a {
+  color: var(--ink);
+  text-decoration: underline;
+  text-decoration-color: var(--border);
+  text-underline-offset: 4px;
+  transition: text-decoration-color 0.2s;
+}
+.legal-prose a:hover,
+.legal-summary a:hover {
+  text-decoration-color: var(--accent);
+}
+.legal-prose strong {
+  color: var(--ink);
+  font-weight: 500;
+}
+.legal-prose ul {
+  display: grid;
+  gap: 0.5rem;
+}
+.legal-prose ul > li {
+  position: relative;
+  padding-left: 1.25rem;
+}
+.legal-prose ul > li::before {
+  content: "";
+  position: absolute;
+  left: 0.2rem;
+  top: 0.8em;
+  height: 1px;
+  width: 0.5rem;
+  background: var(--faint);
+}

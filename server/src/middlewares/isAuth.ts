@@ -5,6 +5,16 @@ import ApiKey from "../models/ApiKey";
 import { hashApiKey, looksLikeApiKey } from "../utils/apiKey";
 import { env } from "../config/env";
 
+// Only persist activity when the stored value is this stale, so busy clients
+// don't turn every request into a write.
+const ACTIVITY_WRITE_INTERVAL_MS = 5 * 60 * 1000;
+
+function touchActivity(user: User) {
+  const last = user.last_active_at ? new Date(user.last_active_at).getTime() : 0;
+  if (Date.now() - last < ACTIVITY_WRITE_INTERVAL_MS) return;
+  user.update({ last_active_at: new Date() }).catch(() => {});
+}
+
 function attach(req: Request, user: User, via: "jwt" | "apikey") {
   // @ts-ignore
   req.userId = user.user_id;
@@ -40,7 +50,9 @@ export default async function isAuth(req: Request, res: Response, next: NextFunc
       const user = await User.findOne({ where: { user_id: record.user_id } });
       if (!user) return res.status(401).json({ error: { message: "Invalid API key" } });
       if (!user.is_verified) return res.status(403).json({ error: { message: "Email not verified" } });
+      if (user.is_suspended) return res.status(403).json({ error: { code: "SUSPENDED", message: "Account suspended" } });
 
+      touchActivity(user);
       record.update({ last_used_at: new Date() }).catch(() => {});
       attach(req, user, "apikey");
       return next();
@@ -69,7 +81,9 @@ export default async function isAuth(req: Request, res: Response, next: NextFunc
     const user = await User.findOne({ where: { user_id: decodedToken.userId } });
     if (!user) return res.status(401).json({ error: { message: "User not found" } });
     if (!user.is_verified) return res.status(403).json({ error: { message: "Email not verified" } });
+    if (user.is_suspended) return res.status(403).json({ error: { code: "SUSPENDED", message: "Account suspended" } });
 
+    touchActivity(user);
     attach(req, user, "jwt");
     next();
   } catch (error) {
