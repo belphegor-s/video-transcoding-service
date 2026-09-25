@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { ArrowDownRight, ArrowUpRight, Table2, BarChart3 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { INDICATOR_CLASS, useSlidingIndicator } from "@/lib/use-sliding-indicator";
 
 export function fmtBytes(bytes: number | null | undefined): string {
   if (bytes === null || bytes === undefined) return "—";
@@ -178,22 +179,36 @@ export function Segmented<T extends string | number>({
   options: { label: string; value: T }[];
   ariaLabel: string;
 }) {
+  const { containerRef, indicatorRef } = useSlidingIndicator(value);
   return (
-    <div role="radiogroup" aria-label={ariaLabel} className="inline-flex rounded-full border border-border bg-surface p-1">
-      {options.map((o) => (
-        <button
-          key={String(o.value)}
-          role="radio"
-          aria-checked={o.value === value}
-          onClick={() => onChange(o.value)}
-          className={cn(
-            "rounded-full px-3 py-1.5 font-mono text-[11px] transition-colors",
-            o.value === value ? "bg-surface-2 text-ink shadow-[inset_0_0_0_1px_var(--border)]" : "text-muted hover:text-ink",
-          )}
-        >
-          {o.label}
-        </button>
-      ))}
+    <div
+      ref={containerRef}
+      role="radiogroup"
+      aria-label={ariaLabel}
+      className="group/seg relative inline-flex rounded-full border border-border bg-surface p-1"
+    >
+      <span aria-hidden ref={indicatorRef} className={cn(INDICATOR_CLASS, "rounded-full bg-surface-2 shadow-[inset_0_0_0_1px_var(--border)]")} />
+      {options.map((o) => {
+        const active = o.value === value;
+        return (
+          <button
+            key={String(o.value)}
+            type="button"
+            role="radio"
+            aria-checked={active}
+            data-active={active}
+            onClick={() => onChange(o.value)}
+            className={cn(
+              "relative z-10 rounded-full px-3 py-1.5 font-mono text-[11px] transition-colors duration-200",
+              active
+                ? "bg-surface-2 text-ink shadow-[inset_0_0_0_1px_var(--border)] group-data-[indicator=ready]/seg:bg-transparent group-data-[indicator=ready]/seg:shadow-none"
+                : "text-muted hover:text-ink",
+            )}
+          >
+            {o.label}
+          </button>
+        );
+      })}
     </div>
   );
 }

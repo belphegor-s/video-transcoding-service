@@ -41,7 +41,8 @@ import { isInFlight } from "@/components/status-badge";
 import { useAuth } from "@/lib/use-auth";
 import { api, bulkDownloadUrl, folderDownloadUrl } from "@/lib/api";
 import { cn } from "@/lib/utils";
-import { LIFETIME_VIDEO_LIMIT, MAX_FILE_BYTES, summarizeFolder, type FolderStat, type Paginated, type Video } from "@/lib/types";
+import { useSlidingIndicator, INDICATOR_CLASS } from "@/lib/use-sliding-indicator";
+import { LIFETIME_VIDEO_LIMIT, MAX_FILE_BYTES, summarizeFolder, type FolderStat, type Video, type VideoPage } from "@/lib/types";
 
 const COUNTED: Video["status"][] = ["uploaded", "transcoding", "transcoded"];
 const PAGE_SIZE = 12;
@@ -53,7 +54,7 @@ function displayName(v: Video) {
 export default function DashboardPage() {
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
-  const [data, setData] = useState<Paginated<Video> | null>(null);
+  const [data, setData] = useState<VideoPage | null>(null);
   const [offset, setOffset] = useState(0);
   const [q, setQ] = useState("");
   const [debouncedQ, setDebouncedQ] = useState("");
@@ -87,6 +88,7 @@ export default function DashboardPage() {
     setView(v);
     localStorage.setItem("vt_view", v);
   };
+  const { containerRef: viewToggleRef, indicatorRef: viewIndicatorRef } = useSlidingIndicator(view);
   const [showUpload, setShowUpload] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -97,6 +99,9 @@ export default function DashboardPage() {
   const [renameFolderTarget, setRenameFolderTarget] = useState<{ path: string; name: string } | null>(null);
   const [renameFolderDraft, setRenameFolderDraft] = useState("");
   const [deleteFolderTarget, setDeleteFolderTarget] = useState<{ path: string; name: string } | null>(null);
+  const [deleteFolderVideos, setDeleteFolderVideos] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<Video[] | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const [folderBusy, setFolderBusy] = useState(false);
   const [moveTarget, setMoveTarget] = useState<string[] | null>(null);
   const [newFolderOpen, setNewFolderOpen] = useState(false);
@@ -162,7 +167,8 @@ export default function DashboardPage() {
   }, [data, load]);
 
   const videos = data?.items ?? null;
-  const usedCount = videos?.filter((v) => COUNTED.includes(v.status)).length ?? 0;
+  // Server figure includes deleted videos (they keep their slot); the page count is only a fallback.
+  const usedCount = data?.usage?.used ?? videos?.filter((v) => COUNTED.includes(v.status)).length ?? 0;
   const unlimited = !!user?.unlimited;
   const atLimit = !unlimited && usedCount >= LIFETIME_VIDEO_LIMIT;
   const selectionActive = selected.size > 0 || selectedFolders.size > 0;
@@ -328,17 +334,47 @@ export default function DashboardPage() {
     const { path } = deleteFolderTarget;
     setFolderBusy(true);
     try {
-      await api.deleteFolder(path);
+      const { deleted_videos } = await api.deleteFolder(path, { deleteVideos: deleteFolderVideos });
       if (folder === path || folder.startsWith(path + "/")) {
         setFolder(path.includes("/") ? path.slice(0, path.lastIndexOf("/")) : "");
       } else load(true);
-      toast.success("Folder deleted");
+      toast.success(
+        deleted_videos > 0 ? `Folder and ${deleted_videos} ${deleted_videos === 1 ? "video" : "videos"} deleted` : "Folder deleted",
+      );
+      setSelectedFolders((prev) => new Set([...prev].filter((p) => p !== path && !p.startsWith(path + "/"))));
       setDeleteFolderTarget(null);
       refreshFolders();
     } catch (e: any) {
       toast.error(e?.message ?? "Delete failed");
     } finally {
       setFolderBusy(false);
+    }
+  };
+
+  const openDeleteFolder = (f: { path: string; name: string }) => {
+    setDeleteFolderVideos(false);
+    setDeleteFolderTarget(f);
+  };
+
+  const doDeleteVideos = async () => {
+    if (!deleteTarget || deleteTarget.length === 0) return;
+    setDeleting(true);
+    try {
+      const { deleted, skipped } = await api.deleteVideos(deleteTarget.map((v) => v.video_id));
+      toast.success(deleted.length === 1 ? "Video deleted" : `${deleted.length} videos deleted`);
+      if (skipped.length > 0) toast.warning(`${skipped.length} not deleted`, { description: skipped[0].reason });
+      const gone = new Set(deleted);
+      setSelected((prev) => new Set([...prev].filter((id) => !gone.has(id))));
+      setDeleteTarget(null);
+      // Step back a page if this one is now empty.
+      const remaining = (videos ?? []).filter((v) => !gone.has(v.video_id)).length;
+      if (remaining === 0 && offset > 0) setOffset(Math.max(0, offset - PAGE_SIZE));
+      else load(true);
+      refreshFolders();
+    } catch (e: any) {
+      toast.error(e?.message ?? "Delete failed");
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -351,7 +387,7 @@ export default function DashboardPage() {
         { label: "Download folder", icon: <Download className="h-4 w-4" />, onClick: () => runZip({ folder: f }) },
         { label: "Rename folder", icon: <Pencil className="h-4 w-4" />, onClick: () => { setRenameFolderDraft(f.name); setRenameFolderTarget(f); } },
         { separator: true },
-        { label: "Delete folder", danger: true, icon: <Trash2 className="h-4 w-4" />, onClick: () => setDeleteFolderTarget(f) },
+        { label: "Delete folder", danger: true, icon: <Trash2 className="h-4 w-4" />, onClick: () => openDeleteFolder(f) },
       ];
     }
     const v = menu.video!;
@@ -372,6 +408,8 @@ export default function DashboardPage() {
       icon: <Check className="h-4 w-4" />,
       onClick: () => toggleSelect(v),
     });
+    items.push({ separator: true });
+    items.push({ label: "Delete", danger: true, icon: <Trash2 className="h-4 w-4" />, onClick: () => setDeleteTarget([v]) });
     return items;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [menu, selected]);
@@ -445,21 +483,34 @@ export default function DashboardPage() {
             />
           </div>
           <div className="flex shrink-0 items-center gap-2 self-start">
-            <div className="flex items-center rounded-lg border border-border p-0.5">
-              <button
-                onClick={() => changeView("grid")}
-                className={cn("rounded-md p-1.5 transition-colors", view === "grid" ? "bg-surface-2 text-ink" : "text-faint hover:text-ink")}
-                aria-label="Grid view"
-              >
-                <LayoutGrid className="h-4 w-4" />
-              </button>
-              <button
-                onClick={() => changeView("list")}
-                className={cn("rounded-md p-1.5 transition-colors", view === "list" ? "bg-surface-2 text-ink" : "text-faint hover:text-ink")}
-                aria-label="List view"
-              >
-                <List className="h-4 w-4" />
-              </button>
+            <div
+              ref={viewToggleRef}
+              role="group"
+              aria-label="Layout"
+              className="group/view relative flex items-center rounded-lg border border-border p-0.5"
+            >
+              <span aria-hidden ref={viewIndicatorRef} className={cn(INDICATOR_CLASS, "rounded-md bg-surface-2")} />
+              {(
+                [
+                  { value: "grid", label: "Grid view", Icon: LayoutGrid },
+                  { value: "list", label: "List view", Icon: List },
+                ] as const
+              ).map(({ value, label, Icon }) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => changeView(value)}
+                  data-active={view === value}
+                  aria-pressed={view === value}
+                  aria-label={label}
+                  className={cn(
+                    "relative z-10 rounded-md p-1.5 transition-colors duration-200",
+                    view === value ? "bg-surface-2 text-ink group-data-[indicator=ready]/view:bg-transparent" : "text-faint hover:text-ink",
+                  )}
+                >
+                  <Icon className="h-4 w-4" />
+                </button>
+              ))}
             </div>
             <button
               onClick={() => setNewFolderOpen(true)}
@@ -631,6 +682,15 @@ export default function DashboardPage() {
                 Move to folder
               </button>
             )}
+            {selected.size > 0 && selectedFolders.size === 0 && (
+              <button
+                onClick={() => setDeleteTarget((videos ?? []).filter((v) => selected.has(v.video_id)))}
+                className="inline-flex items-center gap-1.5 rounded-full border border-danger/40 px-3 py-1.5 font-mono text-xs text-danger transition-colors hover:bg-danger/10"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+                Delete
+              </button>
+            )}
             <button onClick={clearSelection} className="inline-flex items-center gap-1 rounded-full px-3 py-1.5 font-mono text-xs text-muted transition-colors hover:text-ink">
               <X className="h-3.5 w-3.5" />
               Clear
@@ -717,13 +777,65 @@ export default function DashboardPage() {
         onConfirm={doDeleteFolder}
         loading={folderBusy}
         destructive
-        confirmLabel="Delete folder"
+        confirmLabel={deleteFolderVideos ? "Delete folder and videos" : "Delete folder"}
         title="Delete folder?"
+        description={(() => {
+          if (!deleteFolderTarget) return null;
+          const count = summarizeFolder(deleteFolderTarget.path, folders, folderStats).videos;
+          return (
+            <>
+              <p>
+                Delete <span className="text-ink">{deleteFolderTarget.name}</span> and its subfolders.{" "}
+                {deleteFolderVideos
+                  ? "Every video inside is permanently deleted, including renditions, captions and share links. This can't be undone."
+                  : "Videos inside move to your library root."}
+              </p>
+              {count > 0 && (
+                <label className="mt-4 flex cursor-pointer items-start gap-2.5 rounded-xl border border-border p-3 text-xs transition-colors hover:border-faint">
+                  <input
+                    type="checkbox"
+                    checked={deleteFolderVideos}
+                    onChange={(e) => setDeleteFolderVideos(e.target.checked)}
+                    disabled={folderBusy}
+                    className="mt-0.5 h-3.5 w-3.5 accent-danger"
+                  />
+                  <span>
+                    <span className="text-ink">
+                      Also delete the {count} {count === 1 ? "video" : "videos"} inside
+                    </span>
+                    {!unlimited && <span className="mt-0.5 block text-faint">Deleted videos still count toward your free-plan limit.</span>}
+                  </span>
+                </label>
+              )}
+            </>
+          );
+        })()}
+      />
+
+      <ConfirmModal
+        open={!!deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={doDeleteVideos}
+        loading={deleting}
+        destructive
+        confirmLabel="Delete permanently"
+        title={deleteTarget && deleteTarget.length > 1 ? `Delete ${deleteTarget.length} videos?` : "Delete video?"}
         description={
-          <>
-            Delete <span className="text-ink">{deleteFolderTarget?.name}</span> and its subfolders. Videos inside move to
-            uncategorized (they are not deleted).
-          </>
+          deleteTarget && (
+            <>
+              <p>
+                {deleteTarget.length === 1 ? (
+                  <>
+                    <span className="text-ink">{displayName(deleteTarget[0])}</span> will be permanently deleted
+                  </>
+                ) : (
+                  "These videos will be permanently deleted"
+                )}
+                , including every rendition, caption and share or embed link. This can&apos;t be undone.
+              </p>
+              {!unlimited && <p className="mt-2 text-xs text-faint">Deleted videos still count toward your free-plan limit.</p>}
+            </>
+          )
         }
       />
 

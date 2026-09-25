@@ -375,6 +375,7 @@ export const userDetailController = async (req: Request, res: Response) => {
           error: num(counts.error),
         },
         public_videos: num(counts.public),
+        deleted_videos: user.deleted_videos ?? 0,
         folders,
         storage: usage ? { ...usage, total_bytes: usage.source_bytes + usage.output_bytes, computed_at: storage!.computed_at } : null,
         storage_computed_at: storage?.computed_at ?? null,

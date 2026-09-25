@@ -20,6 +20,7 @@ const SECTIONS = [
   { id: "transcription", label: "Transcription" },
   { id: "download", label: "Downloads" },
   { id: "visibility", label: "Visibility & embeds" },
+  { id: "delete", label: "Delete videos" },
   { id: "errors", label: "Errors" },
 ];
 
@@ -250,12 +251,26 @@ export default function DocsPage() {
           </section>
 
           <section className="space-y-5">
+            <H id="delete">Delete videos</H>
+            <Endpoint method="POST" path="/video/delete" />
+            <p className="leading-relaxed text-muted">
+              Permanently deletes up to 100 videos: the source file, every rendition, captions, thumbnail and share links. Body:{" "}
+              <Code>{`{ "video_ids": ["..."] }`}</Code>. Videos still uploading or transcoding are skipped and listed in{" "}
+              <Code>skipped</Code> with a reason. Deleting doesn&apos;t free up a slot on the free plan.
+            </p>
+            <CodeBlock
+              label="bash"
+              code={`curl -X POST ${BASE}/video/delete \\\n  -H "x-api-key: $API_KEY" \\\n  -H "Content-Type: application/json" \\\n  -d '{"video_ids":["'$ID'"]}'\n# { "data": { "deleted": ["..."], "skipped": [] } }`}
+            />
+          </section>
+
+          <section className="space-y-5">
             <H id="errors">Errors</H>
             <p className="leading-relaxed text-muted">Standard HTTP status codes; the body always carries a message.</p>
             <CodeBlock
               label="status codes"
               lang="text"
-              code={`400  Bad request / validation error\n401  Missing, invalid, or expired API key\n403  Forbidden (e.g. limit reached, not your resource)\n404  Not found\n500  Server error`}
+              code={`400  Bad request / validation error\n401  Missing, invalid, or expired API key\n403  Forbidden (e.g. limit reached, not your resource)\n404  Not found\n409  Conflict (e.g. video still processing)\n500  Server error`}
             />
             <CodeBlock label="example" lang="json" code={`{ "error": { "message": "API key expired" } }`} />
           </section>

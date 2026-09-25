@@ -36,6 +36,7 @@ import { streamHls } from "../utils/streamHls";
 import { getSignedCloudFrontUrl } from "../utils/getSignedCloudFrontUrl";
 import { captionTracks, fetchTranscription, getOrCreateThumbnail } from "../utils/media";
 import { getRedisClient } from "../lib/redisClient";
+import { deleteBlockReason, deleteVideos, getLifetimeUsage } from "../lib/deleteVideos";
 import { env } from "../config/env";
 
 export const userVideosController = async (req: Request, res: Response) => {
@@ -60,8 +61,12 @@ export const userVideosController = async (req: Request, res: Response) => {
     };
     const order = orderMap[sort] ?? orderMap.newest;
 
-    const { rows, count } = await Video.findAndCountAll({ where, order, limit, offset });
-    return res.json({ data: { items: rows, total: count, limit, offset } });
+    const [{ rows, count }, used] = await Promise.all([
+      Video.findAndCountAll({ where, order, limit, offset }),
+      // @ts-ignore
+      getLifetimeUsage(req.userId),
+    ]);
+    return res.json({ data: { items: rows, total: count, limit, offset, usage: { used } } });
   } catch (e: any) {
     console.error("Error occurred in userVideosController() -> ", e);
     return res.status(500).json({ error: { message: e?.message ?? "Internal server error!" } });
@@ -264,21 +269,89 @@ export const renameFolderController = async (req: Request, res: Response) => {
   }
 };
 
+const deleteFolderSchema = z.object({
+  path: z.string().min(1).max(500),
+  delete_videos: z
+    .enum(["true", "false"])
+    .optional()
+    .transform((v) => v === "true"),
+});
+
 export const deleteFolderController = async (req: Request, res: Response) => {
   try {
-    const path = normalizeFolderPath((req.query.path as string) || "");
+    const parsed = deleteFolderSchema.parse(req.query);
+    const path = normalizeFolderPath(parsed.path);
     if (!path) return res.status(400).json({ error: { message: "Folder path is required" } });
     // @ts-ignore
     const userId = req.userId;
     const match = { [Op.or]: [{ path }, { path: { [Op.like]: `${path}/%` } }] };
     const videoMatch = { [Op.or]: [{ folder: path }, { folder: { [Op.like]: `${path}/%` } }] };
-    // Videos inside move to uncategorized (not deleted).
-    await Video.update({ folder: null }, { where: { user_id: userId, ...videoMatch } });
+
+    let deleted = 0;
+    if (parsed.delete_videos) {
+      const videos = await Video.findAll({ where: { user_id: userId, ...videoMatch } });
+      // All or nothing: never leave a half-deleted folder behind.
+      const blocked = videos.filter((v) => deleteBlockReason(v));
+      if (blocked.length > 0) {
+        return res.status(409).json({
+          error: {
+            code: "VIDEOS_IN_PROGRESS",
+            message: `${blocked.length} ${blocked.length === 1 ? "video is" : "videos are"} still uploading or processing. Try again once ${blocked.length === 1 ? "it finishes" : "they finish"}.`,
+          },
+        });
+      }
+      await deleteVideos(userId, videos);
+      deleted = videos.length;
+    } else {
+      // Videos inside move to uncategorized (not deleted).
+      await Video.update({ folder: null }, { where: { user_id: userId, ...videoMatch } });
+    }
     await Folder.destroy({ where: { user_id: userId, ...match } });
-    return res.json({ data: { path } });
+    return res.json({ data: { path, deleted_videos: deleted } });
   } catch (e: any) {
+    if (e instanceof z.ZodError) return res.status(400).json({ error: { message: e.errors.map((x) => x.message).join("; ") } });
     console.error("deleteFolderController ->", e);
-    return res.status(500).json({ error: { message: e?.message ?? "Internal server error!" } });
+    return res.status(500).json({ error: { message: "Couldn't delete folder" } });
+  }
+};
+
+const deleteVideosSchema = z.object({
+  video_ids: z.array(z.string().uuid()).min(1).max(100),
+});
+
+/**
+ * Permanently delete videos (DB row, S3 source + outputs, Redis progress).
+ * Videos still uploading/transcoding are skipped and reported, not failed, so a
+ * mixed selection deletes what it can. Deleting never frees a free-plan slot.
+ */
+export const deleteVideosController = async (req: Request, res: Response) => {
+  try {
+    const { video_ids } = deleteVideosSchema.parse(req.body);
+    // @ts-ignore
+    const userId = req.userId;
+    const videos = await Video.findAll({ where: { user_id: userId, video_id: { [Op.in]: video_ids } } });
+
+    const skipped: { video_id: string; reason: string }[] = [];
+    const deletable: Video[] = [];
+    for (const v of videos) {
+      const reason = deleteBlockReason(v);
+      if (reason) skipped.push({ video_id: v.video_id, reason });
+      else deletable.push(v);
+    }
+    const found = new Set(videos.map((v) => v.video_id));
+    for (const id of video_ids) if (!found.has(id)) skipped.push({ video_id: id, reason: "Video not found" });
+
+    if (deletable.length === 0) {
+      const status = videos.length === 0 ? 404 : 409;
+      return res.status(status).json({ error: { message: skipped[0]?.reason ?? "Nothing to delete" }, data: { deleted: [], skipped } });
+    }
+
+    await deleteVideos(userId, deletable);
+    return res.json({ data: { deleted: deletable.map((v) => v.video_id), skipped } });
+  } catch (e: any) {
+    if (e instanceof z.ZodError) return res.status(400).json({ error: { message: e.errors.map((x) => x.message).join("; ") } });
+    console.error("deleteVideosController ->", e);
+    return res.status(500).json({ error: { message: "Couldn't delete videos" } });
   }
 };
 

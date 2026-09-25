@@ -14,6 +14,7 @@ export interface UserSchema {
   is_verified?: boolean;
   is_suspended?: boolean;
   last_active_at?: Date | null;
+  deleted_videos?: number;
 }
 
 class User extends Model<UserSchema> implements UserSchema {
@@ -29,6 +30,7 @@ class User extends Model<UserSchema> implements UserSchema {
   public is_verified?: boolean;
   public is_suspended?: boolean;
   public last_active_at?: Date | null;
+  public deleted_videos!: number;
 }
 
 User.init(
@@ -91,6 +93,13 @@ User.init(
       type: DataTypes.DATE,
       allowNull: true,
       defaultValue: null,
+    },
+    // Videos the user deleted that had already used a free slot. Added to the live
+    // count so deleting never refunds the lifetime limit.
+    deleted_videos: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      defaultValue: 0,
     },
   },
   {

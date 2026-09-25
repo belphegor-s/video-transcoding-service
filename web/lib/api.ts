@@ -10,12 +10,14 @@ import type {
   AuthUser,
   CaptionTrack,
   CreatedApiKey,
+  DeleteVideosResult,
   FolderStat,
   Paginated,
   PresignedPost,
   RenditionProgress,
   Transcription,
   Video,
+  VideoPage,
   VideoStatus,
 } from "./types";
 
@@ -183,7 +185,7 @@ export const api = {
     request<PresignedPost>("/upload/upload-videos", { auth: true, query: { fileType, fileName } }),
 
   videos: (limit = 12, offset = 0, opts?: { q?: string; folder?: string; sort?: string }) =>
-    request<Paginated<Video>>("/video/user-videos", {
+    request<VideoPage>("/video/user-videos", {
       auth: true,
       query: {
         limit: String(limit),
@@ -219,8 +221,17 @@ export const api = {
   renameFolder: (from: string, to: string) =>
     request<{ from: string; to: string }>("/video/folders/rename", { method: "PATCH", auth: true, body: { from, to } }),
 
-  deleteFolder: (path: string) =>
-    request<{ path: string }>("/video/folders", { method: "DELETE", auth: true, query: { path } }),
+  /** Removes the folder tree. With `deleteVideos`, videos inside are permanently deleted too (else moved to root). */
+  deleteFolder: (path: string, opts?: { deleteVideos?: boolean }) =>
+    request<{ path: string; deleted_videos: number }>("/video/folders", {
+      method: "DELETE",
+      auth: true,
+      query: { path, delete_videos: opts?.deleteVideos ? "true" : undefined },
+    }),
+
+  /** Permanently deletes videos. In-flight ones are skipped and reported. */
+  deleteVideos: (videoIds: string[]) =>
+    request<DeleteVideosResult>("/video/delete", { method: "POST", auth: true, body: { video_ids: videoIds } }),
 
   moveVideos: (videoIds: string[], folder: string | null) =>
     request<{ moved: number; folder: string | null }>("/video/move", {

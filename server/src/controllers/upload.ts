@@ -1,17 +1,14 @@
 import { Request, Response } from "express";
 import { z } from "zod";
-import { Op } from "sequelize";
 import { v4 as uuid } from "uuid";
 import { getPresignedUrl } from "../utils/getPresignedUrl";
 import Video from "../models/Video";
+import { getLifetimeUsage } from "../lib/deleteVideos";
 import { FREE_MAX_FILE_BYTES, UNLIMITED_MAX_FILE_BYTES, isUnlimited } from "../utils/account";
 
-// Lifetime cap: a user may keep at most this many real (uploaded+) videos.
+// Lifetime cap: a user may upload at most this many real (uploaded+) videos.
+// Deleted videos still count (see getLifetimeUsage).
 export const LIFETIME_VIDEO_LIMIT = 5;
-const COUNTED_STATUSES = ["uploaded", "transcoding", "transcoded"];
-
-const getLifetimeCount = (userId: string) =>
-  Video.count({ where: { user_id: userId, status: { [Op.in]: COUNTED_STATUSES } } });
 
 const allowedVideoTypes = ["video/mp4", "video/mpeg", "video/quicktime", "video/x-msvideo", "video/x-flv", "video/webm"];
 
@@ -34,7 +31,7 @@ export const uploadVideosController = async (req: Request, res: Response) => {
     const unlimited = isUnlimited(req.email);
 
     if (!unlimited) {
-      const count = await getLifetimeCount(userId);
+      const count = await getLifetimeUsage(userId);
       if (count >= LIFETIME_VIDEO_LIMIT) {
         return res.status(403).json({
           error: {

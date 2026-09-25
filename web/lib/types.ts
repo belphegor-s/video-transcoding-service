@@ -122,6 +122,16 @@ export interface Paginated<T> {
   offset: number;
 }
 
+export type VideoPage = Paginated<Video> & {
+  /** Lifetime free-plan slots used, including deleted videos. */
+  usage?: { used: number };
+};
+
+export interface DeleteVideosResult {
+  deleted: string[];
+  skipped: { video_id: string; reason: string }[];
+}
+
 export interface AuthUser {
   userId: string;
   email: string;
@@ -249,6 +259,8 @@ export interface AdminUserDetail {
   };
   by_status: StatusCounts;
   public_videos: number;
+  /** Deleted videos that had used a free slot; they still count toward the limit. */
+  deleted_videos: number;
   folders: number;
   storage: { source_bytes: number; output_bytes: number; objects: number; total_bytes: number; computed_at: string } | null;
   storage_computed_at: string | null;

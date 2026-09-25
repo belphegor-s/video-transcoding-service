@@ -122,6 +122,7 @@ export default function AdminUserPage() {
 
   const { user, by_status: s } = data;
   const uploaded = s.uploaded + s.transcoding + s.transcoded;
+  const slotsUsed = uploaded + (data.deleted_videos ?? 0);
   const activeKeys = data.api_keys.filter((k) => k.status === "active").length;
 
   return (
@@ -190,7 +191,7 @@ export default function AdminUserPage() {
         <StatTile
           label="Videos"
           value={fmtInt(uploaded)}
-          sub={user.unlimited ? "Unlimited plan" : `${fmtInt(Math.min(uploaded, LIFETIME_VIDEO_LIMIT))} of ${LIFETIME_VIDEO_LIMIT} free slots used`}
+          sub={user.unlimited ? "Unlimited plan" : `${fmtInt(Math.min(slotsUsed, LIFETIME_VIDEO_LIMIT))} of ${LIFETIME_VIDEO_LIMIT} free slots used${data.deleted_videos ? ` · ${fmtInt(data.deleted_videos)} deleted` : ""}`}
         />
         <StatTile
           label="Storage"

@@ -4,6 +4,7 @@ import {
   captionsController,
   createFolderController,
   deleteFolderController,
+  deleteVideosController,
   downloadTokenController,
   foldersController,
   folderStatsController,
@@ -32,6 +33,7 @@ router.post("/folders", createFolderController);
 router.patch("/folders/rename", renameFolderController);
 router.delete("/folders", deleteFolderController);
 router.patch("/move", moveVideosController);
+router.post("/delete", deleteVideosController);
 router.get("/stream", streamVideoController);
 router.get("/thumbnail", thumbnailController);
 router.get("/transcription", transcriptionController);
