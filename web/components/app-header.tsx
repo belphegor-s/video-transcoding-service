@@ -62,7 +62,7 @@ export function AppHeader({ user }: { user: AuthUser | null }) {
       {/* mobile nav */}
       <nav
         ref={mobileNavRef}
-        className="group/mnav relative flex items-center gap-1 overflow-x-auto border-t border-border px-4 py-2 font-mono text-xs md:hidden"
+        className="group/mnav relative flex items-center gap-1 overflow-x-auto border-t border-border px-5 py-2 font-mono text-xs sm:px-8 md:hidden"
       >
         <span aria-hidden ref={mobileIndicatorRef} className={cn(INDICATOR_CLASS, "rounded-full bg-surface")} />
         {nav.map((item) => {
@@ -74,7 +74,7 @@ export function AppHeader({ user }: { user: AuthUser | null }) {
               data-active={active}
               aria-current={active ? "page" : undefined}
               className={cn(
-                "relative z-10 shrink-0 rounded-full px-3 py-1.5 transition-colors duration-200",
+                "relative z-10 shrink-0 rounded-full px-3 py-1.5 transition-[color] duration-200",
                 active ? "bg-surface text-ink group-data-[indicator=ready]/mnav:bg-transparent" : "text-muted hover:text-ink",
               )}
             >

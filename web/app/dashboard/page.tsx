@@ -504,7 +504,7 @@ export default function DashboardPage() {
                   aria-pressed={view === value}
                   aria-label={label}
                   className={cn(
-                    "relative z-10 rounded-md p-1.5 transition-colors duration-200",
+                    "relative z-10 rounded-md p-1.5 transition-[color] duration-200",
                     view === value ? "bg-surface-2 text-ink group-data-[indicator=ready]/view:bg-transparent" : "text-faint hover:text-ink",
                   )}
                 >

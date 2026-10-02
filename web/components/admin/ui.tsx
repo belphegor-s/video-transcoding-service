@@ -199,7 +199,7 @@ export function Segmented<T extends string | number>({
             data-active={active}
             onClick={() => onChange(o.value)}
             className={cn(
-              "relative z-10 rounded-full px-3 py-1.5 font-mono text-[11px] transition-colors duration-200",
+              "relative z-10 rounded-full px-3 py-1.5 font-mono text-[11px] transition-[color] duration-200",
               active
                 ? "bg-surface-2 text-ink shadow-[inset_0_0_0_1px_var(--border)] group-data-[indicator=ready]/seg:bg-transparent group-data-[indicator=ready]/seg:shadow-none"
                 : "text-muted hover:text-ink",

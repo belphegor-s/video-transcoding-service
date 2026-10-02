@@ -55,7 +55,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
                   data-active={active}
                   aria-current={active ? "page" : undefined}
                   className={cn(
-                    "relative z-10 rounded-full px-3 py-1.5 transition-colors duration-200",
+                    "relative z-10 rounded-full px-3 py-1.5 transition-[color] duration-200",
                     active ? "bg-surface text-ink group-data-[indicator=ready]/tabs:bg-transparent" : "text-muted hover:text-ink",
                   )}
                 >

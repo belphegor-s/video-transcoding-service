@@ -9,9 +9,20 @@ type Rect = { x: number; y: number; w: number; h: number };
 /** Last indicator position per group, so a group that remounts on navigation still slides. */
 const lastRects = new Map<string, Rect>();
 
+const measureActive = (container: HTMLElement): Rect | null => {
+  const el = container.querySelector<HTMLElement>('[data-active="true"]');
+  if (!el) return null;
+  return { x: el.offsetLeft, y: el.offsetTop, w: el.offsetWidth, h: el.offsetHeight };
+};
+
+const sameRect = (a: Rect | null, b: Rect | null) =>
+  a === b || (!!a && !!b && a.x === b.x && a.y === b.y && a.w === b.w && a.h === b.h);
+
 /**
  * Base classes for the indicator element. Add shape/colour (rounded-*, bg-*) per group.
- * Items that sit above it need `relative z-10`.
+ * Items that sit above it need `relative z-10`, and must not transition their
+ * background (`transition-[color]`, not `transition-colors`) or the static
+ * fallback fades out at the destination while the indicator slides in.
  */
 export const INDICATOR_CLASS =
   "pointer-events-none absolute left-0 top-0 opacity-0 transition-[transform,width,height,opacity] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] will-change-transform motion-reduce:transition-none";
@@ -33,17 +44,13 @@ export function useSlidingIndicator<C extends HTMLElement = HTMLDivElement>(acti
   const [container, containerRef] = useState<C | null>(null);
   const [indicator, indicatorRef] = useState<HTMLSpanElement | null>(null);
   const placedOn = useRef<HTMLElement | null>(null);
+  const applied = useRef<Rect | null>(null);
 
   useIsoLayoutEffect(() => {
     if (!container || !indicator) return;
 
-    const measure = (): Rect | null => {
-      const el = container.querySelector<HTMLElement>('[data-active="true"]');
-      if (!el) return null;
-      return { x: el.offsetLeft, y: el.offsetTop, w: el.offsetWidth, h: el.offsetHeight };
-    };
-
     const apply = (r: Rect | null) => {
+      applied.current = r;
       if (!r) {
         indicator.style.opacity = "0";
         if (persistKey) lastRects.delete(persistKey);
@@ -64,7 +71,7 @@ export function useSlidingIndicator<C extends HTMLElement = HTMLDivElement>(acti
       indicator.style.transition = "";
     };
 
-    const next = measure();
+    const next = measureActive(container);
     if (placedOn.current === container) {
       // Coming back from "nothing active": appear in place rather than slide from a stale spot.
       if (indicator.style.opacity === "0") snap(next);
@@ -87,30 +94,28 @@ export function useSlidingIndicator<C extends HTMLElement = HTMLDivElement>(acti
     if (!container || !indicator || typeof ResizeObserver === "undefined") return;
 
     const resync = () => {
-      const el = container.querySelector<HTMLElement>('[data-active="true"]');
-      if (!el) return;
+      const r = measureActive(container);
+      // Unchanged covers the callback RO fires on observe: the layout effect already
+      // placed it and may be mid-slide. A group hidden at mount (display: none) gets no
+      // such callback, so its first real one, on becoming visible, must not be dropped.
+      if (!r || sameRect(r, applied.current)) return;
+      applied.current = r;
       indicator.style.transition = "none";
-      indicator.style.transform = `translate3d(${el.offsetLeft}px, ${el.offsetTop}px, 0)`;
-      indicator.style.width = `${el.offsetWidth}px`;
-      indicator.style.height = `${el.offsetHeight}px`;
+      indicator.style.transform = `translate3d(${r.x}px, ${r.y}px, 0)`;
+      indicator.style.width = `${r.w}px`;
+      indicator.style.height = `${r.h}px`;
       void indicator.offsetWidth;
       indicator.style.transition = "";
+      if (persistKey && r.w > 0) lastRects.set(persistKey, r);
     };
 
-    let skipFirst = true; // RO fires once on observe; layout effect already placed it
-    const ro = new ResizeObserver(() => {
-      if (skipFirst) {
-        skipFirst = false;
-        return;
-      }
-      resync();
-    });
+    const ro = new ResizeObserver(resync);
     ro.observe(container);
     // Items only: the indicator resizes on every slide and would cancel it.
     for (const child of Array.from(container.children)) if (child !== indicator) ro.observe(child);
     if (document.fonts && document.fonts.status !== "loaded") document.fonts.ready.then(resync).catch(() => {});
     return () => ro.disconnect();
-  }, [container, indicator]);
+  }, [container, indicator, persistKey]);
 
   return { containerRef, indicatorRef };
 }
