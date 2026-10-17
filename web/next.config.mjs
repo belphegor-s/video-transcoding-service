@@ -39,10 +39,10 @@ const nextConfig = {
         source: "/embed/:path*",
         headers: [...baseHeaders, { key: "Content-Security-Policy", value: csp("*") }],
       },
-      // Everything else: same-origin framing only.
+      // Everything else: same origin, plus the portfolio, which shows the site live in its project cards.
       {
         source: "/((?!embed).*)",
-        headers: [...baseHeaders, { key: "X-Frame-Options", value: "SAMEORIGIN" }, { key: "Content-Security-Policy", value: csp("'self'") }],
+        headers: [...baseHeaders, { key: "Content-Security-Policy", value: csp("'self' https://ayushsharma.me https://www.ayushsharma.me") }],
       },
     ];
   },
