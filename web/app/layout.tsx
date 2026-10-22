@@ -1,6 +1,8 @@
 import type { Metadata, Viewport } from "next";
 import { Instrument_Serif, Hanken_Grotesk, JetBrains_Mono } from "next/font/google";
-import { Toaster } from "sonner";
+import { AppToaster } from "@/components/app-toaster";
+import { ThemeProvider } from "@/lib/theme";
+import { THEME_COLORS, themeBootScript } from "@/lib/theme-script";
 import "./globals.css";
 
 const serif = Instrument_Serif({
@@ -26,7 +28,10 @@ const mono = JetBrains_Mono({
 const siteUrl = "https://transcode.procd.cc";
 
 export const viewport: Viewport = {
-  themeColor: "#0b0b0c",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: THEME_COLORS.light },
+    { media: "(prefers-color-scheme: dark)", color: THEME_COLORS.dark },
+  ],
 };
 
 export const metadata: Metadata = {
@@ -66,21 +71,16 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${serif.variable} ${sans.variable} ${mono.variable}`}>
+    // The boot script sets data-theme before hydration, so the attribute differs from the server render.
+    <html lang="en" className={`${serif.variable} ${sans.variable} ${mono.variable}`} suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: themeBootScript }} />
+      </head>
       <body className="relative antialiased">
-        {children}
-        <Toaster
-          theme="dark"
-          position="bottom-right"
-          toastOptions={{
-            style: {
-              background: "var(--surface)",
-              border: "1px solid var(--border)",
-              color: "var(--ink)",
-              fontFamily: "var(--font-sans)",
-            },
-          }}
-        />
+        <ThemeProvider>
+          {children}
+          <AppToaster />
+        </ThemeProvider>
       </body>
     </html>
   );

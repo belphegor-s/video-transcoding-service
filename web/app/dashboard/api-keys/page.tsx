@@ -9,6 +9,7 @@ import { Field } from "@/components/ui";
 import { Select } from "@/components/select";
 import { ConfirmModal } from "@/components/modal";
 import { Pagination } from "@/components/pagination";
+import { ApiKeyListSkeleton, ApiKeysPageSkeleton } from "@/components/skeleton";
 import { useAuth } from "@/lib/use-auth";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
@@ -141,8 +142,9 @@ export default function ApiKeysPage() {
 
   if (authLoading || !user) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
-        <Loader2 className="h-6 w-6 animate-spin text-accent" />
+      <div className="relative z-10 min-h-screen">
+        <AppHeader user={null} />
+        <ApiKeysPageSkeleton />
       </div>
     );
   }
@@ -223,9 +225,7 @@ export default function ApiKeysPage() {
 
         {/* list */}
         {keys === null ? (
-          <div className="flex justify-center py-12">
-            <Loader2 className="h-5 w-5 animate-spin text-accent" />
-          </div>
+          <ApiKeyListSkeleton />
         ) : keys.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-border py-16 text-center">
             <KeyRound className="mx-auto mb-3 h-6 w-6 text-faint" strokeWidth={1.5} />

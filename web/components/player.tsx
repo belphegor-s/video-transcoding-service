@@ -98,6 +98,7 @@ export function VideoPlayer({
   return (
     <MediaPlayer
       className={cn("aspect-video w-full overflow-hidden rounded-2xl border border-border bg-black", className)}
+      // Controls sit on video, which is dark in either theme, so keep the bright brand lime.
       style={{ "--video-brand": "#cdfb46" }}
       title={title}
       src={{ src, type: "application/x-mpegurl" }}

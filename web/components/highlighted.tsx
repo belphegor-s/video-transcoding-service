@@ -10,18 +10,18 @@ require("prismjs/components/prism-bash");
 require("prismjs/components/prism-json");
 require("prismjs/components/prism-javascript");
 
-// Dark theme tuned to the app palette: lime tags/keywords, green names,
-// warm sand strings, faint punctuation/comments.
+// Tuned to the app palette and driven by CSS variables, so it follows the theme:
+// accent tags/keywords, green names, warm sand strings, faint punctuation/comments.
 const theme: PrismTheme = {
-  plain: { color: "#ededec", backgroundColor: "transparent" },
+  plain: { color: "var(--ink)", backgroundColor: "transparent" },
   styles: [
-    { types: ["comment", "prolog", "doctype", "cdata"], style: { color: "#6a6a70", fontStyle: "italic" } },
-    { types: ["punctuation"], style: { color: "#6a6a70" } },
-    { types: ["tag", "keyword", "selector", "operator", "property", "important", "atrule"], style: { color: "#cdfb46" } },
-    { types: ["attr-name", "function", "class-name", "builtin"], style: { color: "#8fe388" } },
-    { types: ["string", "attr-value", "char", "inserted", "number", "boolean", "url", "regex"], style: { color: "#dcc28a" } },
-    { types: ["variable", "constant", "symbol"], style: { color: "#ededec" } },
-    { types: ["deleted"], style: { color: "#ff6b5e" } },
+    { types: ["comment", "prolog", "doctype", "cdata"], style: { color: "var(--faint)", fontStyle: "italic" } },
+    { types: ["punctuation"], style: { color: "var(--faint)" } },
+    { types: ["tag", "keyword", "selector", "operator", "property", "important", "atrule"], style: { color: "var(--accent)" } },
+    { types: ["attr-name", "function", "class-name", "builtin"], style: { color: "var(--ok)" } },
+    { types: ["string", "attr-value", "char", "inserted", "number", "boolean", "url", "regex"], style: { color: "var(--code-string)" } },
+    { types: ["variable", "constant", "symbol"], style: { color: "var(--ink)" } },
+    { types: ["deleted"], style: { color: "var(--danger)" } },
   ],
 };
 

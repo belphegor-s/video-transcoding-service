@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Logo } from "./logo";
+import { ThemeToggle } from "./theme-toggle";
 
 export function AuthShell({
   title,
@@ -19,7 +20,7 @@ export function AuthShell({
         <div
           aria-hidden
           className="pointer-events-none absolute left-[-20%] top-[-10%] h-[560px] w-[560px] rounded-full opacity-50 blur-[120px]"
-          style={{ background: "radial-gradient(closest-side, rgba(205,251,70,0.16), transparent)" }}
+          style={{ background: "radial-gradient(closest-side, rgb(var(--accent-rgb) / 0.16), transparent)" }}
         />
         <div
           aria-hidden
@@ -46,12 +47,18 @@ export function AuthShell({
       </aside>
 
       {/* form panel */}
-      <main className="flex flex-col">
-        <div className="flex items-center justify-between p-6 lg:hidden">
+      <main className="relative flex flex-col">
+        <div className="flex items-center justify-between p-5 sm:p-6 lg:hidden">
           <Logo />
-          <Link href="/" className="font-mono text-xs text-muted hover:text-ink">
-            ← Home
-          </Link>
+          <div className="flex items-center gap-3">
+            <Link href="/" className="font-mono text-xs text-muted hover:text-ink">
+              ← Home
+            </Link>
+            <ThemeToggle />
+          </div>
+        </div>
+        <div className="absolute right-8 top-8 hidden lg:block">
+          <ThemeToggle />
         </div>
 
         <div className="flex flex-1 items-center justify-center px-5 py-10 sm:px-8">

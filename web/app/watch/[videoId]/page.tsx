@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { ArrowLeft, Clock, Layers, Loader2, MonitorPlay } from "lucide-react";
+import { ArrowLeft, Clock, Layers, MonitorPlay } from "lucide-react";
 import { AppHeader } from "@/components/app-header";
 import { VideoPlayer } from "@/components/player";
 import { DownloadMenu } from "@/components/download-menu";
@@ -12,6 +12,7 @@ import { TranscriptionPanel } from "@/components/transcription-panel";
 import { EditableTitle } from "@/components/editable-title";
 import { FolderControl } from "@/components/folder-control";
 import { StatusBadge } from "@/components/status-badge";
+import { Skeleton, WatchSkeleton } from "@/components/skeleton";
 import { useAuth } from "@/lib/use-auth";
 import { api, streamUrl } from "@/lib/api";
 import { qualitiesFromVideo, type Video } from "@/lib/types";
@@ -39,8 +40,9 @@ export default function WatchPage() {
 
   if (authLoading || !user || video === undefined) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
-        <Loader2 className="h-6 w-6 animate-spin text-accent" />
+      <div className="relative z-10 min-h-screen">
+        <AppHeader user={user} />
+        <WatchSkeleton />
       </div>
     );
   }
@@ -70,14 +72,15 @@ export default function WatchPage() {
               {video.status === "transcoded" ? (
                 <VideoPlayer src={streamUrl(video.video_id)} videoId={video.video_id} title={title} poster={poster} authed />
               ) : (
-                <div className="flex aspect-video flex-col items-center justify-center gap-4 rounded-2xl border border-border bg-surface text-center">
+                <div className="relative flex aspect-video flex-col items-center justify-center gap-4 overflow-hidden rounded-2xl border border-border bg-surface px-6 text-center">
                   {video.status === "error" ? (
                     <p className="font-serif text-2xl text-danger">Transcoding failed</p>
                   ) : (
                     <>
-                      <Loader2 className="h-7 w-7 animate-spin text-accent" />
-                      <div>
-                        <p className="font-serif text-2xl text-ink">Still processing</p>
+                      {/* the stage shimmers where the player will appear */}
+                      <Skeleton className="absolute inset-0 rounded-none" />
+                      <div className="relative">
+                        <p className="font-serif text-xl text-ink sm:text-2xl">Still processing</p>
                         <p className="mt-1 text-sm text-muted">This page will be ready once transcoding completes.</p>
                       </div>
                     </>

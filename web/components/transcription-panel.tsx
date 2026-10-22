@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Copy, FileText, Loader2 } from "lucide-react";
+import { Copy, FileText } from "lucide-react";
 import { toast } from "sonner";
+import { LoadingRegion, TranscriptLinesSkeleton } from "./skeleton";
 import type { Transcription } from "@/lib/types";
 
 function fmt(s: number): string {
@@ -56,9 +57,9 @@ export function TranscriptionPanel({ fetcher }: { fetcher: () => Promise<Transcr
 
       <div className="max-h-[460px] min-h-[200px] flex-1 overflow-y-auto px-5 py-4">
         {loading ? (
-          <div className="flex h-full items-center justify-center py-10">
-            <Loader2 className="h-5 w-5 animate-spin text-accent" />
-          </div>
+          <LoadingRegion label="Loading transcription">
+            <TranscriptLinesSkeleton />
+          </LoadingRegion>
         ) : data?.available && data.cues?.length ? (
           <ol className="space-y-3">
             {data.cues.map((cue, i) => (

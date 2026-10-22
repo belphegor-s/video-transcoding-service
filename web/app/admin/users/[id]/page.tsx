@@ -3,10 +3,11 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { AlertTriangle, ArrowLeft, BadgeCheck, Ban, Check, Copy, Globe, KeyRound, Loader2, Lock, ShieldCheck, Video as VideoIcon } from "lucide-react";
+import { AlertTriangle, ArrowLeft, BadgeCheck, Ban, Check, Copy, Globe, KeyRound, Lock, ShieldCheck, Video as VideoIcon } from "lucide-react";
 import { toast } from "sonner";
 import { ConfirmModal } from "@/components/modal";
 import { StatusBadge } from "@/components/status-badge";
+import { AdminUserSkeleton } from "@/components/skeleton";
 import { SERIES_COLORS, ShareMeter, fmtInt } from "@/components/admin/charts";
 import { Avatar, Badge, Panel, StatTile, fmtBytes, fmtDate } from "@/components/admin/ui";
 import { api } from "@/lib/api";
@@ -103,19 +104,14 @@ export default function AdminUserPage() {
   };
 
   if (!data) {
+    if (!error) return <AdminUserSkeleton />;
     return (
       <main className="shell py-24 text-center">
-        {error ? (
-          <>
-            <AlertTriangle className="mx-auto mb-3 h-6 w-6 text-danger" />
-            <p className="text-sm text-muted">{error.status === 404 ? "This user doesn't exist." : error.message}</p>
-            <Link href="/admin/users" className="btn-ghost mt-6">
-              Back to users
-            </Link>
-          </>
-        ) : (
-          <Loader2 className="mx-auto h-6 w-6 animate-spin text-accent" />
-        )}
+        <AlertTriangle className="mx-auto mb-3 h-6 w-6 text-danger" />
+        <p className="text-sm text-muted">{error.status === 404 ? "This user doesn't exist." : error.message}</p>
+        <Link href="/admin/users" className="btn-ghost mt-6">
+          Back to users
+        </Link>
       </main>
     );
   }

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Logo } from "@/components/logo";
 import { SiteFooter } from "@/components/site-footer";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { LegalToc } from "./legal-toc";
 
 export interface LegalSection {
@@ -34,13 +35,14 @@ export function LegalPage({
       <header className="sticky top-0 z-50 border-b border-border bg-bg/80 backdrop-blur-xl">
         <div className="shell flex h-16 items-center justify-between">
           <Logo />
-          <nav className="flex items-center gap-5 font-mono text-xs text-muted">
+          <nav className="flex items-center gap-3 font-mono text-xs text-muted sm:gap-5">
             <Link href={sibling.href} className="transition-colors hover:text-ink">
               {sibling.label}
             </Link>
             <Link href="/docs" className="hidden transition-colors hover:text-ink sm:inline">
               API docs
             </Link>
+            <ThemeToggle />
             <Link href="/dashboard" className="btn-ghost px-4 py-2 text-xs">
               Dashboard
             </Link>
@@ -52,7 +54,7 @@ export function LegalPage({
         <div
           aria-hidden
           className="pointer-events-none absolute left-1/2 top-[-240px] h-[480px] w-[720px] -translate-x-1/2 rounded-full opacity-40 blur-[120px]"
-          style={{ background: "radial-gradient(closest-side, rgba(205,251,70,0.10), transparent)" }}
+          style={{ background: "radial-gradient(closest-side, rgb(var(--accent-rgb) / 0.10), transparent)" }}
         />
 
         <div className="shell relative pb-10 pt-16 sm:pt-24">

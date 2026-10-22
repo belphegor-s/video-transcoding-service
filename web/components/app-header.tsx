@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { LogOut } from "lucide-react";
 import { Logo } from "./logo";
+import { ThemeToggle } from "./theme-toggle";
 import { logout } from "@/lib/use-auth";
 import { cn } from "@/lib/utils";
 import { INDICATOR_CLASS, useSlidingIndicator } from "@/lib/use-sliding-indicator";
@@ -43,15 +44,17 @@ export function AppHeader({ user }: { user: AuthUser | null }) {
             ))}
           </nav>
         </div>
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2 sm:gap-3">
           {user && (
-            <span className="hidden max-w-[160px] truncate font-mono text-xs text-muted sm:inline" title={user.email}>
+            <span className="mr-1 hidden max-w-[160px] truncate font-mono text-xs text-muted sm:inline" title={user.email}>
               {user.name ? user.name : user.email}
             </span>
           )}
+          <ThemeToggle />
           <button
             onClick={() => logout(router)}
-            className="inline-flex items-center gap-2 rounded-full border border-border px-3.5 py-2 font-mono text-xs text-muted transition-colors hover:border-faint hover:text-ink"
+            aria-label="Sign out"
+            className="inline-flex h-9 items-center gap-2 rounded-full border border-border px-3 font-mono text-xs text-muted transition-colors hover:border-faint hover:text-ink sm:px-3.5"
           >
             <LogOut className="h-3.5 w-3.5" />
             <span className="hidden sm:inline">Sign out</span>

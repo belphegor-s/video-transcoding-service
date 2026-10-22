@@ -4,18 +4,19 @@ import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 
 /*
- * Lightweight SVG charts for the admin console. Deliberately dependency-free and
- * tuned to the site's dark surface: thin marks, hairline grid, one tooltip that
- * lists every series at the hovered position, and keyboard stepping (←/→).
+ * Lightweight SVG charts for the admin console. Deliberately dependency-free:
+ * thin marks, hairline grid, one tooltip that lists every series at the
+ * hovered position, and keyboard stepping (←/→).
  *
- * Status hues were validated for CVD separation on the #131316 surface.
+ * Colours are CSS variables so they follow the theme; status hues are tuned
+ * per theme in globals.css for CVD separation on that theme's surface.
  */
 export const SERIES_COLORS = {
-  ready: "#4fa84a",
-  processing: "#3f87e0",
-  failed: "#e0564a",
-  neutral: "#5a5a61",
-  line: "#cdfb46",
+  ready: "var(--series-ready)",
+  processing: "var(--series-processing)",
+  failed: "var(--series-failed)",
+  neutral: "var(--series-neutral)",
+  line: "var(--accent)",
 } as const;
 
 export interface SeriesDef<K extends string> {
@@ -90,7 +91,7 @@ function Tooltip({
   return (
     <div
       role="presentation"
-      className="pointer-events-none absolute top-2 z-10 rounded-xl border border-border bg-bg/95 px-3 py-2.5 shadow-[0_12px_40px_-12px_rgba(0,0,0,0.8)] backdrop-blur"
+      className="pointer-events-none absolute top-2 z-10 rounded-xl border border-border bg-bg/95 px-3 py-2.5 shadow-[0_12px_40px_-12px_var(--shadow-strong)] backdrop-blur"
       style={{ left: Math.max(0, left), width: W }}
     >
       <p className="mb-1.5 font-mono text-[10px] uppercase tracking-label text-faint">{title}</p>

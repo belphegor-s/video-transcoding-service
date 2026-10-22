@@ -3,9 +3,10 @@
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { ChevronRight, Loader2, Search, Users, X } from "lucide-react";
+import { ChevronRight, Search, Users, X } from "lucide-react";
 import { Select } from "@/components/select";
 import { Pagination } from "@/components/pagination";
+import { AdminUsersSkeleton, UserRowsSkeleton } from "@/components/skeleton";
 import { Avatar, Badge, Segmented, fmtBytes, fmtDate } from "@/components/admin/ui";
 import { fmtInt } from "@/components/admin/charts";
 import { api } from "@/lib/api";
@@ -139,9 +140,7 @@ function UsersInner() {
       {error && <p className="mb-4 rounded-xl border border-danger/30 bg-danger/5 px-4 py-2.5 text-sm text-danger">{error}</p>}
 
       {!data ? (
-        <div className="flex justify-center py-20">
-          <Loader2 className="h-5 w-5 animate-spin text-accent" />
-        </div>
+        error ? null : <UserRowsSkeleton />
       ) : rows.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-border py-16 text-center">
           <Users className="mx-auto mb-3 h-6 w-6 text-faint" strokeWidth={1.5} />
@@ -217,13 +216,7 @@ function UsersInner() {
 
 export default function AdminUsersPage() {
   return (
-    <Suspense
-      fallback={
-        <div className="flex justify-center py-24">
-          <Loader2 className="h-5 w-5 animate-spin text-accent" />
-        </div>
-      }
-    >
+    <Suspense fallback={<AdminUsersSkeleton />}>
       <UsersInner />
     </Suspense>
   );

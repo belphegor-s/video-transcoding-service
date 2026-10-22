@@ -37,6 +37,7 @@ import { Select } from "@/components/select";
 import { MoveDialog } from "@/components/move-dialog";
 import { NewFolderDialog } from "@/components/new-folder-dialog";
 import { ConfirmModal, Modal } from "@/components/modal";
+import { LibrarySkeleton, VideoCardSkeleton } from "@/components/skeleton";
 import { isInFlight } from "@/components/status-badge";
 import { useAuth } from "@/lib/use-auth";
 import { api, bulkDownloadUrl, folderDownloadUrl } from "@/lib/api";
@@ -416,8 +417,9 @@ export default function DashboardPage() {
 
   if (authLoading || !user) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
-        <Loader2 className="h-6 w-6 animate-spin text-accent" />
+      <div className="relative z-10 min-h-screen">
+        <AppHeader user={null} />
+        <LibrarySkeleton />
       </div>
     );
   }
@@ -619,25 +621,7 @@ export default function DashboardPage() {
                     );
                   })}
                 {loading
-                  ? Array.from({ length: 6 }).map((_, i) =>
-                      view === "grid" ? (
-                        <div key={`s${i}`} className="flex flex-col gap-4 rounded-2xl border border-border bg-surface p-5">
-                          <div className="aspect-video animate-pulse rounded-xl bg-surface-2" />
-                          <div className="space-y-2">
-                            <div className="h-3 w-2/3 animate-pulse rounded bg-surface-2" />
-                            <div className="h-2.5 w-1/3 animate-pulse rounded bg-surface-2" />
-                          </div>
-                        </div>
-                      ) : (
-                        <div key={`s${i}`} className="flex items-center gap-4 rounded-xl border border-border bg-surface p-3">
-                          <div className="h-12 w-24 animate-pulse rounded-lg bg-surface-2 sm:w-32" />
-                          <div className="flex-1 space-y-2">
-                            <div className="h-3 w-1/2 animate-pulse rounded bg-surface-2" />
-                            <div className="h-2.5 w-1/4 animate-pulse rounded bg-surface-2" />
-                          </div>
-                        </div>
-                      ),
-                    )
+                  ? Array.from({ length: 6 }).map((_, i) => <VideoCardSkeleton key={`s${i}`} view={view} />)
                   : videos!.map((v) => (
                       <VideoCard
                         key={v.video_id}
@@ -662,8 +646,8 @@ export default function DashboardPage() {
 
       {/* selection toolbar */}
       {selectionActive && (
-        <div className="fixed inset-x-0 bottom-6 z-40 flex justify-center px-4">
-          <div className="flex items-center gap-2 rounded-full border border-border bg-surface/95 px-3 py-2 shadow-2xl backdrop-blur">
+        <div className="fixed inset-x-0 bottom-[max(1.5rem,env(safe-area-inset-bottom))] z-40 flex justify-center px-4">
+          <div className="flex max-w-full animate-rise flex-wrap items-center justify-center gap-1.5 rounded-2xl border border-border bg-surface/95 px-2.5 py-2 shadow-2xl backdrop-blur sm:flex-nowrap sm:gap-2 sm:rounded-full sm:px-3">
             <span className="px-2 font-mono text-xs text-ink">{selected.size + selectedFolders.size} selected</span>
             <button onClick={selectAll} className="rounded-full px-3 py-1.5 font-mono text-xs text-muted transition-colors hover:text-ink">
               Select page
@@ -850,7 +834,10 @@ export default function DashboardPage() {
       {dl && (
         <Modal open onClose={() => {}} className="max-w-xs">
           <div className="flex flex-col items-center gap-3 py-2 text-center">
-            <Loader2 className="h-7 w-7 animate-spin text-accent" />
+            <span className="relative flex h-11 w-11 items-center justify-center rounded-full border border-accent/30 bg-accent/10 text-accent">
+              <span className="absolute inset-0 animate-ping rounded-full border border-accent/30 motion-reduce:hidden" />
+              <Download className="h-5 w-5" />
+            </span>
             {dl.phase === "preparing" ? (
               <>
                 <p className="text-sm text-ink">Preparing {dl.label}…</p>

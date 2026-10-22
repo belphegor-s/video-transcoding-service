@@ -5,6 +5,7 @@ import Link from "next/link";
 import { AlertTriangle, ArrowRight, HardDrive, Loader2, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { StatusBadge } from "@/components/status-badge";
+import { AdminOverviewSkeleton } from "@/components/skeleton";
 import { AreaTrend, Legend, RankedBars, SERIES_COLORS, ShareMeter, StackedColumns, fmtBucket, fmtInt } from "@/components/admin/charts";
 import { Avatar, DataTable, Delta, Panel, Segmented, StatTile, fmtBytes, fmtDate } from "@/components/admin/ui";
 import { api } from "@/lib/api";
@@ -99,19 +100,16 @@ export default function AdminOverviewPage() {
   };
 
   if (!data) {
+    if (!error) return <AdminOverviewSkeleton />;
     return (
       <main className="shell flex justify-center py-24">
-        {error ? (
-          <div className="text-center">
-            <AlertTriangle className="mx-auto mb-3 h-6 w-6 text-danger" />
-            <p className="text-sm text-muted">{error}</p>
-            <button onClick={() => load(days)} className="btn-ghost mt-5">
-              Try again
-            </button>
-          </div>
-        ) : (
-          <Loader2 className="h-6 w-6 animate-spin text-accent" />
-        )}
+        <div className="text-center">
+          <AlertTriangle className="mx-auto mb-3 h-6 w-6 text-danger" />
+          <p className="text-sm text-muted">{error}</p>
+          <button onClick={() => load(days)} className="btn-ghost mt-5">
+            Try again
+          </button>
+        </div>
       </main>
     );
   }

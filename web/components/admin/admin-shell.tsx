@@ -3,8 +3,9 @@
 import { useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Loader2, ShieldCheck } from "lucide-react";
+import { ShieldCheck } from "lucide-react";
 import { AppHeader } from "@/components/app-header";
+import { AdminOverviewSkeleton, AdminTabsSkeleton, AdminUserSkeleton, AdminUsersSkeleton } from "@/components/skeleton";
 import { useAuth } from "@/lib/use-auth";
 import { cn } from "@/lib/utils";
 import { INDICATOR_CLASS, useSlidingIndicator } from "@/lib/use-sliding-indicator";
@@ -32,9 +33,13 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
   }, [loading, user, router]);
 
   if (loading || !user || !user.admin) {
+    // Mirror the page underneath so the console settles in place once the session checks out.
+    const body = pathname === "/admin" ? <AdminOverviewSkeleton /> : pathname === "/admin/users" ? <AdminUsersSkeleton /> : <AdminUserSkeleton />;
     return (
-      <div className="flex min-h-screen items-center justify-center">
-        <Loader2 className="h-6 w-6 animate-spin text-accent" />
+      <div className="relative z-10 min-h-screen">
+        <AppHeader user={null} />
+        <AdminTabsSkeleton />
+        {body}
       </div>
     );
   }

@@ -20,6 +20,9 @@ uniform vec2 uRes;
 uniform float uTime;
 uniform vec2 uMouse;
 uniform float uMouseAmt;
+uniform vec3 uBg;      // --bg
+uniform vec3 uAccent;  // --accent
+uniform vec3 uCool;    // --cool, teal undertone for depth
 
 out vec4 outColor;
 
@@ -86,9 +89,6 @@ float fbm(vec3 p) {
 
 float hash(vec2 p) { return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
 
-const vec3 BG = vec3(0.043, 0.043, 0.047);      // #0b0b0c
-const vec3 ACCENT = vec3(0.804, 0.984, 0.275);  // #cdfb46
-const vec3 COOL = vec3(0.30, 0.86, 0.72);       // teal undertone for depth
 
 void main() {
   vec2 uv = (gl_FragCoord.xy - 0.5 * uRes) / uRes.y;
@@ -123,12 +123,14 @@ void main() {
   float vign = 1.0 - smoothstep(0.35, 1.25, length(uv * vec2(0.8, 1.1) - vec2(0.35, 0.05)));
   float mask = side * vign;
 
-  vec3 tint = mix(COOL, ACCENT, smoothstep(-0.3, 0.45, f + q.x * 0.35));
-  vec3 col = BG;
-  col += tint * glow * 0.12 * mask;
-  col += tint * fine * 0.17 * mask;
-  col += ACCENT * major * 0.5 * mask;
-  col += ACCENT * lens * fine * 0.28;
+  // blend toward the ink colours rather than adding light, so the same field
+  // reads as glowing lines on the dark theme and as inked lines on the light one
+  vec3 tint = mix(uCool, uAccent, smoothstep(-0.3, 0.45, f + q.x * 0.35));
+  vec3 col = uBg;
+  col = mix(col, tint, clamp(glow * 0.12 * mask, 0.0, 1.0));
+  col = mix(col, tint, fine * 0.17 * mask);
+  col = mix(col, uAccent, major * 0.5 * mask);
+  col = mix(col, uAccent, lens * fine * 0.28);
 
   // blue-noise-ish dither to kill banding in the gradients
   col += (hash(gl_FragCoord.xy + fract(uTime)) - 0.5) / 255.0;
@@ -157,6 +159,12 @@ export function HeroBackground() {
       <div className="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-b from-transparent to-bg" />
     </div>
   );
+}
+
+/** Reads an "r g b" channel token from :root as 0–1 floats. */
+function readRgb(styles: CSSStyleDeclaration, name: string, fallback: [number, number, number]): [number, number, number] {
+  const parts = styles.getPropertyValue(name).trim().split(/\s+/).map(Number);
+  return parts.length === 3 && parts.every((n) => Number.isFinite(n)) ? (parts.map((n) => n / 255) as [number, number, number]) : fallback;
 }
 
 function compile(gl: WebGL2RenderingContext, type: number, src: string) {
@@ -210,6 +218,17 @@ function ShaderField() {
     const uTime = gl.getUniformLocation(program, "uTime");
     const uMouse = gl.getUniformLocation(program, "uMouse");
     const uMouseAmt = gl.getUniformLocation(program, "uMouseAmt");
+    const uBg = gl.getUniformLocation(program, "uBg");
+    const uAccent = gl.getUniformLocation(program, "uAccent");
+    const uCool = gl.getUniformLocation(program, "uCool");
+
+    const applyPalette = () => {
+      const styles = getComputedStyle(document.documentElement);
+      gl.uniform3fv(uBg, readRgb(styles, "--bg-rgb", [0.043, 0.043, 0.047]));
+      gl.uniform3fv(uAccent, readRgb(styles, "--accent-rgb", [0.804, 0.984, 0.275]));
+      gl.uniform3fv(uCool, readRgb(styles, "--cool-rgb", [0.3, 0.86, 0.72]));
+    };
+    applyPalette();
 
     const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const finePointer = window.matchMedia("(pointer: fine)").matches;
@@ -276,6 +295,12 @@ function ShaderField() {
     });
     io.observe(canvas);
     document.addEventListener("visibilitychange", sync);
+    // Repaint synchronously on a theme flip so a view-transition snapshot already has the new palette.
+    const themeObserver = new MutationObserver(() => {
+      applyPalette();
+      draw(performance.now());
+    });
+    themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
     if (finePointer && !reduceMotion) {
       window.addEventListener("pointermove", onMove, { passive: true });
       document.documentElement.addEventListener("pointerleave", onLeave);
@@ -291,6 +316,7 @@ function ShaderField() {
       cancelAnimationFrame(raf);
       ro.disconnect();
       io.disconnect();
+      themeObserver.disconnect();
       document.removeEventListener("visibilitychange", sync);
       window.removeEventListener("pointermove", onMove);
       document.documentElement.removeEventListener("pointerleave", onLeave);
@@ -316,7 +342,7 @@ function StaticField() {
       className="absolute right-[-10%] top-[-10%] h-[560px] w-[820px] max-w-[120vw] rounded-full opacity-60 blur-[120px]"
       style={{
         background:
-          "radial-gradient(closest-side, rgba(205,251,70,0.16), rgba(77,219,184,0.05) 60%, transparent)",
+          "radial-gradient(closest-side, rgb(var(--accent-rgb) / 0.16), rgb(var(--cool-rgb) / 0.05) 60%, transparent)",
       }}
     />
   );

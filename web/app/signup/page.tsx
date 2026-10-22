@@ -5,8 +5,9 @@ import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Loader2, MailCheck } from "lucide-react";
+import { MailCheck } from "lucide-react";
 import { AuthShell } from "@/components/auth-shell";
+import { AuthFormSkeleton } from "@/components/skeleton";
 import { Field, Alert, SubmitButton } from "@/components/ui";
 import { api } from "@/lib/api";
 import { useRedirectIfAuthenticated } from "@/lib/use-auth";
@@ -46,9 +47,9 @@ export default function SignupPage() {
 
   if (checkingSession) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
-        <Loader2 className="h-6 w-6 animate-spin text-accent" />
-      </div>
+      <AuthShell title="Create your account" subtitle="Start turning source files into adaptive streams.">
+        <AuthFormSkeleton fields={3} />
+      </AuthShell>
     );
   }
 

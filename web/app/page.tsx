@@ -173,7 +173,7 @@ export default function LandingPage() {
               <div
                 aria-hidden
                 className="pointer-events-none absolute right-[-10%] top-[-40%] h-[420px] w-[420px] rounded-full opacity-40 blur-[100px]"
-                style={{ background: "radial-gradient(closest-side, rgba(205,251,70,0.25), transparent)" }}
+                style={{ background: "radial-gradient(closest-side, rgb(var(--accent-rgb) / 0.25), transparent)" }}
               />
               <p className="eyebrow mb-6">Ready when you are</p>
               <h2 className="display max-w-2xl text-[clamp(2rem,6vw,4rem)] text-ink">

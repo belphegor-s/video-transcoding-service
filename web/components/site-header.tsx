@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 import { tokens } from "@/lib/api";
 import { Logo } from "./logo";
+import { ThemeToggle } from "./theme-toggle";
 
 const LINKS = [
   { href: "#how", label: "How it works" },
@@ -49,6 +50,7 @@ export function SiteHeader() {
         </nav>
 
         <div className="flex items-center gap-2">
+          <ThemeToggle />
           {authed ? (
             <Link href="/dashboard" className="btn-primary">
               Dashboard
