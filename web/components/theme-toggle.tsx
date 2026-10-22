@@ -47,7 +47,7 @@ export function ThemeToggle({ className }: { className?: string }) {
             aria-hidden
             strokeWidth={1.75}
             className={cn(
-              "absolute h-4 w-4 transition-[transform,opacity] duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] motion-reduce:transition-none",
+              "absolute h-4 w-4 transition-[transform,opacity] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none",
               active ? "rotate-0 scale-100 opacity-100" : "-rotate-90 scale-50 opacity-0",
             )}
           />

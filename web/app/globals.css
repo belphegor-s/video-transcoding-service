@@ -298,3 +298,7 @@ html[data-theme-switching]::view-transition-new(root) {
   animation: none;
   mix-blend-mode: normal;
 }
+/* Start fully clipped so the new theme never flashes in before the wave animation attaches. */
+html[data-theme-switching]::view-transition-new(root) {
+  clip-path: circle(0);
+}

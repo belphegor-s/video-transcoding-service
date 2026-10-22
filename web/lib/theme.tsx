@@ -68,34 +68,36 @@ function freezeTransitions() {
 
 /* ------------------------------- wave reveal ------------------------------- */
 
-const WAVE_DURATION = 1100;
-const WAVE_STEPS = 48;
-const WAVE_POINTS = 140;
+const WAVE_DURATION = 1000;
+// Dense keyframes so the linear interpolation between them reads as one continuous curve.
+const WAVE_STEPS = 90;
+const WAVE_POINTS = 96;
 
-const easeInOutCubic = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
+const easeInOutSine = (t: number) => -(Math.cos(Math.PI * t) - 1) / 2;
 
 /**
- * Keyframes for a circle growing out of (x, y) whose rim ripples like a wave:
- * two counter-rotating harmonics, an amplitude that swells mid-way and calms
- * to a clean circle as it covers the screen.
+ * Keyframes for a circle growing out of (x, y) whose rim rolls like a slow
+ * wave: one broad swell with a faint undertone drifting gently around the rim.
+ * The amplitude rises and falls smoothly (zero at both ends), so the reveal
+ * opens cleanly and lands as a clean circle covering the screen.
  */
 function waveKeyframes(x: number, y: number) {
   const w = window.innerWidth;
   const h = window.innerHeight;
   const maxR = Math.hypot(Math.max(x, w - x), Math.max(y, h - y));
-  const peakAmp = Math.min(56, Math.max(18, maxR * 0.045));
+  const peakAmp = Math.min(34, Math.max(12, maxR * 0.028));
   const frames: string[] = [];
 
   for (let s = 0; s <= WAVE_STEPS; s++) {
     const t = s / WAVE_STEPS;
-    const r = easeInOutCubic(t) * (maxR + peakAmp) + 2;
-    // swell in the middle, settle to a circle at the end; damp near the origin so it opens cleanly
-    const amp = peakAmp * Math.sin(Math.PI * t) * Math.min(1, r / (peakAmp * 4));
-    const phase = t * Math.PI * 3;
+    const r = easeInOutSine(t) * (maxR + peakAmp) + 1;
+    const env = Math.sin(Math.PI * t);
+    const amp = peakAmp * env * env * Math.min(1, r / (peakAmp * 5));
+    const phase = t * Math.PI * 1.2;
     const pts: string[] = [];
     for (let i = 0; i < WAVE_POINTS; i++) {
       const a = (i / WAVE_POINTS) * Math.PI * 2;
-      const ripple = 0.68 * Math.sin(7 * a + phase) + 0.32 * Math.sin(11 * a - phase * 1.6);
+      const ripple = 0.82 * Math.sin(6 * a + phase) + 0.18 * Math.sin(3 * a - phase * 0.6);
       const rr = Math.max(0, r + amp * ripple);
       pts.push(`${(x + rr * Math.cos(a)).toFixed(1)}px ${(y + rr * Math.sin(a)).toFixed(1)}px`);
     }
@@ -110,6 +112,8 @@ type DocWithVT = Document & { startViewTransition?: (cb: () => void) => ViewTran
 function waveTransition(commit: () => void, origin: { x: number; y: number }) {
   const doc = document as DocWithVT;
   const root = document.documentElement;
+  // Build the frames before starting so nothing heavy runs between snapshot and first frame.
+  const frames = waveKeyframes(origin.x, origin.y);
   root.dataset.themeSwitching = "";
   const release = freezeTransitions();
 
@@ -126,7 +130,7 @@ function waveTransition(commit: () => void, origin: { x: number; y: number }) {
   vt.ready
     .then(() => {
       root.animate(
-        { clipPath: waveKeyframes(origin.x, origin.y) },
+        { clipPath: frames },
         { duration: WAVE_DURATION, easing: "linear", fill: "both", pseudoElement: "::view-transition-new(root)" },
       );
     })

@@ -273,7 +273,8 @@ function ShaderField() {
     };
 
     const loop = (now: number) => {
-      draw(now);
+      // Sit out the theme wave: the page is a frozen snapshot then, and rendering underneath steals GPU from it.
+      if (!document.documentElement.hasAttribute("data-theme-switching")) draw(now);
       raf = requestAnimationFrame(loop);
     };
     const sync = () => {
